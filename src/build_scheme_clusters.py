@@ -8,21 +8,28 @@ separation badly - see commit history), and writes both the cluster
 assignments (output/scheme_clusters.csv) and an interactive scatter
 (output/scheme_clusters.html).
 
-Feature set (12; screen_rate was tried and dropped - redundant with adot at
-r=-0.38 and the weakest standalone signal of the candidates tested):
+Feature set (11; two were tried and dropped):
   pct_under_center, pct_top_personnel, rush_rate, pa_personnel_match,
-  disguise_entropy, outside_run_rate, pa_boot_rate, adot, motion_rate,
+  disguise_entropy, outside_run_rate, pa_boot_rate, motion_rate,
   designed_qb_run_rate, rpo_rate, no_huddle_rate
+
+  - screen_rate: redundant with adot (r=-0.38), weakest standalone signal
+    of the candidates tested.
+  - adot: a leave-one-out sweep over every feature (at k=5-10) found
+    dropping adot was the only removal that *improved* silhouette (0.402
+    -> 0.416 at k=6, vs -0.008 to -0.039 for dropping anything else except
+    pct_top_personnel, which was neutral alone but made things worse
+    combined with dropping adot too - so adot alone was cut, nothing else).
 
 rpo_rate correlates -0.51 with pct_under_center (RPOs are almost always
 run from shotgun) and 0.38 with disguise_entropy - the largest correlation
 among kept features, but not so large it's a restatement of either.
 
-k=6 chosen by silhouette over k=2-10 (0.402, next best 0.389 at k=5) -
+k=6 chosen by silhouette over k=2-10 (0.416, next best 0.401 at k=5) -
 re-checked each time features change, since the value that was best for an
 earlier feature set is not assumed to still be best. Unlike earlier
 higher-k attempts (which mostly fragmented into singleton-team outlier
-clusters), k=6 here surfaces one genuinely new, coherent group: PHI/IND on
+clusters), k=6 surfaces one genuinely new, coherent group: PHI/IND on
 RPO rate, plausibly tied to Shane Steichen's move from PHI OC to IND HC.
 """
 import json
@@ -43,7 +50,6 @@ FEATURE_META = {
     "disguise_entropy": {"label": "Disguise entropy", "fmt": "num"},
     "outside_run_rate": {"label": "Outside run rate", "fmt": "pct"},
     "pa_boot_rate": {"label": "PA boot rate", "fmt": "pct"},
-    "adot": {"label": "aDOT", "fmt": "num"},
     "motion_rate": {"label": "Motion rate", "fmt": "pct"},
     "designed_qb_run_rate": {"label": "Designed QB run rate", "fmt": "pct"},
     "rpo_rate": {"label": "RPO rate", "fmt": "pct"},
@@ -52,12 +58,12 @@ FEATURE_META = {
 FEATURES = list(FEATURE_META.keys())
 
 CLUSTER_LABELS = {
-    0: "Mainstream, high motion",
-    1: "Run-heavy, dual-threat QB",
+    0: "No-huddle / QB-run outlier",
+    1: "Mainstream, moderate",
     2: "RPO-heavy, shotgun, most disguised",
-    3: "Mainstream, moderate",
-    4: "Shotgun, quick-game, pocket passer",
-    5: "No-huddle outlier",
+    3: "Shotgun, quick-game, pocket passer",
+    4: "Mainstream, high motion, under-center",
+    5: "Run-heavy, dual-threat QB",
 }
 
 TEMPLATE_PATH = "src/templates/scheme_clusters_template.html"
@@ -68,12 +74,8 @@ def main():
     gap["outside_run_rate"] = gap["pct_end"] + gap["pct_tackle"]
 
     form = pd.read_csv("data/formation_personnel_features.csv").rename(columns={"posteam": "team"})
-    passing = pd.read_csv("data/passing_features.csv").rename(columns={"posteam": "team"})
 
-    df = (
-        form.merge(gap[["season", "team", "outside_run_rate"]], on=["season", "team"], how="inner")
-        .merge(passing[["season", "team", "adot"]], on=["season", "team"], how="inner")
-    )
+    df = form.merge(gap[["season", "team", "outside_run_rate"]], on=["season", "team"], how="inner")
 
     Xs = StandardScaler().fit_transform(df[FEATURES].values)
     pca = PCA(n_components=2, random_state=0)

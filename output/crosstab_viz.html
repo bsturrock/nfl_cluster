@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gap/PA x Formation Cross-tab</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page:           #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --border:         rgba(11,11,11,0.10);
+    --card-bg:        #ffffff;
+    --seq-low:        #f3f8fd;
+    --seq-high:       #0d366b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page:           #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --border:         rgba(255,255,255,0.10);
+      --card-bg:        #232322;
+      --seq-low:        #15202c;
+      --seq-high:       #5aa2ec;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page:           #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --border:         rgba(255,255,255,0.10);
+    --card-bg:        #232322;
+    --seq-low:        #15202c;
+    --seq-high:       #5aa2ec;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 24px 16px 56px;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; }
+  h1 { font-size: 19px; font-weight: 650; margin: 0 0 4px; }
+  .subtitle { color: var(--text-secondary); font-size: 13.5px; margin: 0 0 6px; line-height: 1.55; max-width: 680px; }
+  .stat-line { font-size: 12.5px; color: var(--text-muted); margin: 0 0 22px; }
+  .stat-line b { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+  .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px 18px; }
+
+  .heatmap-scroll { overflow-x: auto; }
+  table.heatmap { border-collapse: separate; border-spacing: 3px; margin: 0 auto; }
+  table.heatmap th { font-weight: 600; font-size: 11.5px; color: var(--text-secondary); padding: 4px 8px; }
+  th.corner { }
+  th.col-head { text-align: center; max-width: 150px; }
+  th.col-head .n { display: block; font-weight: 400; color: var(--text-muted); font-size: 10.5px; margin-top: 1px; }
+  th.row-head { text-align: right; white-space: nowrap; padding-right: 12px; }
+  th.row-head .n { display: block; font-weight: 400; color: var(--text-muted); font-size: 10.5px; }
+
+  td.cell {
+    width: 132px; height: 78px;
+    border-radius: 8px;
+    text-align: center;
+    vertical-align: middle;
+    cursor: pointer;
+    position: relative;
+  }
+  td.cell .count { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+  td.cell .pct { font-size: 11.5px; margin-top: 3px; font-variant-numeric: tabular-nums; opacity: 0.85; }
+  td.cell:hover { outline: 2px solid var(--text-primary); outline-offset: -2px; }
+  td.cell:focus-visible { outline: 2px solid var(--text-primary); outline-offset: -2px; }
+
+  .legend { display: flex; align-items: center; gap: 10px; margin-top: 18px; font-size: 11px; color: var(--text-muted); }
+  .legend-ramp { flex: 1; max-width: 220px; height: 10px; border-radius: 5px; background: linear-gradient(to right, var(--seq-low), var(--seq-high)); border: 1px solid var(--border); }
+  .legend-label { white-space: nowrap; }
+
+  .finding { margin-top: 20px; padding: 12px 14px; border-radius: 8px; background: var(--gridline); font-size: 12.5px; line-height: 1.6; color: var(--text-secondary); }
+  .finding b { color: var(--text-primary); }
+
+  #tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.16);
+    display: none;
+    z-index: 50;
+    min-width: 170px;
+  }
+  #tooltip .tt-title { font-weight: 700; font-size: 12.5px; margin-bottom: 4px; }
+  #tooltip .tt-row { display: flex; justify-content: space-between; gap: 14px; color: var(--text-secondary); margin-top: 2px; }
+  #tooltip .tt-row b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+  details { margin-top: 18px; }
+  summary { cursor: pointer; font-size: 12.5px; color: var(--text-secondary); }
+  table.plain { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+  table.plain th, table.plain td { text-align: right; padding: 5px 8px; border-bottom: 1px solid var(--gridline); font-variant-numeric: tabular-nums; }
+  table.plain th:first-child, table.plain td:first-child,
+  table.plain th:nth-child(2), table.plain td:nth-child(2) { text-align: left; font-variant-numeric: normal; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Run-Gap/PA Cluster &times; Formation Cluster</h1>
+  <p class="subtitle">
+    Each team-season carries two independent labels: a run gap + play-action
+    identity (k=4) and a formation/personnel identity (k=3). This counts how
+    often each pair shows up together, instead of merging both into one
+    blended clustering.
+  </p>
+  <p class="stat-line">
+    n=<b id="statN"></b> team-seasons &middot; &chi;&sup2;=<b id="statChi2"></b>,
+    p=<b id="statP"></b> &middot; Cram&eacute;r's V=<b id="statV"></b> (weak-to-moderate association)
+  </p>
+
+  <div class="card">
+    <div class="heatmap-scroll">
+      <table class="heatmap" id="heatmapTable"></table>
+    </div>
+    <div class="legend">
+      <span class="legend-label">0%</span>
+      <div class="legend-ramp"></div>
+      <span class="legend-label">100% of row</span>
+      <span class="legend-label" style="margin-left:auto;">color = % of that gap/PA cluster's teams</span>
+    </div>
+  </div>
+
+  <div class="finding">
+    <b>Pistol-heavy formations almost only pair with high-PA gap identities.</b>
+    Of 12 pistol-heavy team-seasons, 11 fall in "Balanced interior, high PA" or
+    "Off-tackle, high PA" &mdash; essentially none land in the two low-PA gap
+    groups. Everything else in the table is fairly evenly spread; this is the
+    one cross-signal strong enough to call out.
+  </div>
+
+  <details>
+    <summary>View as a table</summary>
+    <table class="plain" id="plainTable">
+      <thead>
+        <tr><th>Gap/PA cluster</th><th>Formation cluster</th><th>Count</th><th>% of row</th><th>% of column</th></tr>
+      </thead>
+      <tbody id="plainBody"></tbody>
+    </table>
+  </details>
+</div>
+
+<div id="tooltip"></div>
+
+<script id="crosstab-data" type="application/json">
+{"gap_order": ["Balanced interior, high PA", "Edge-leaning, low PA", "Guard-heavy, low PA", "Off-tackle, high PA"], "form_order": ["Mainstream mix", "Pistol-heavy", "Shotgun/11-personnel monoculture"], "gap_n": {"Balanced interior, high PA": 35, "Edge-leaning, low PA": 42, "Guard-heavy, low PA": 36, "Off-tackle, high PA": 15}, "form_n": {"Mainstream mix": 84, "Pistol-heavy": 12, "Shotgun/11-personnel monoculture": 32}, "cells": [{"gap": "Balanced interior, high PA", "form": "Mainstream mix", "count": 22, "row_pct": 0.6286, "col_pct": 0.2619}, {"gap": "Balanced interior, high PA", "form": "Pistol-heavy", "count": 6, "row_pct": 0.1714, "col_pct": 0.5}, {"gap": "Balanced interior, high PA", "form": "Shotgun/11-personnel monoculture", "count": 7, "row_pct": 0.2, "col_pct": 0.2188}, {"gap": "Edge-leaning, low PA", "form": "Mainstream mix", "count": 30, "row_pct": 0.7143, "col_pct": 0.3571}, {"gap": "Edge-leaning, low PA", "form": "Pistol-heavy", "count": 1, "row_pct": 0.0238, "col_pct": 0.0833}, {"gap": "Edge-leaning, low PA", "form": "Shotgun/11-personnel monoculture", "count": 11, "row_pct": 0.2619, "col_pct": 0.3438}, {"gap": "Guard-heavy, low PA", "form": "Mainstream mix", "count": 25, "row_pct": 0.6944, "col_pct": 0.2976}, {"gap": "Guard-heavy, low PA", "form": "Pistol-heavy", "count": 0, "row_pct": 0.0, "col_pct": 0.0}, {"gap": "Guard-heavy, low PA", "form": "Shotgun/11-personnel monoculture", "count": 11, "row_pct": 0.3056, "col_pct": 0.3438}, {"gap": "Off-tackle, high PA", "form": "Mainstream mix", "count": 7, "row_pct": 0.4667, "col_pct": 0.0833}, {"gap": "Off-tackle, high PA", "form": "Pistol-heavy", "count": 5, "row_pct": 0.3333, "col_pct": 0.4167}, {"gap": "Off-tackle, high PA", "form": "Shotgun/11-personnel monoculture", "count": 3, "row_pct": 0.2, "col_pct": 0.0938}], "chi2": 19.13, "p": 0.004, "dof": 6, "cramers_v": 0.273, "n_total": 128}
+</script>
+<script>
+(function () {
+  var data = JSON.parse(document.getElementById('crosstab-data').textContent);
+
+  document.getElementById('statN').textContent = data.n_total;
+  document.getElementById('statChi2').textContent = data.chi2;
+  document.getElementById('statP').textContent = data.p;
+  document.getElementById('statV').textContent = data.cramers_v;
+
+  var cellMap = {};
+  data.cells.forEach(function (c) { cellMap[c.gap + '|||' + c.form] = c; });
+
+  function lerp(a, b, t) { return Math.round(a + (b - a) * t); }
+  function hexToRgb(hex) {
+    hex = hex.replace('#', '');
+    return [parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16)];
+  }
+  function mix(hexA, hexB, t) {
+    var a = hexToRgb(hexA), b = hexToRgb(hexB);
+    var r = lerp(a[0], b[0], t), g = lerp(a[1], b[1], t), bl = lerp(a[2], b[2], t);
+    return 'rgb(' + r + ',' + g + ',' + bl + ')';
+  }
+  function luminance(hexA, hexB, t) {
+    var a = hexToRgb(hexA), b = hexToRgb(hexB);
+    var r = lerp(a[0],b[0],t)/255, g = lerp(a[1],b[1],t)/255, bl = lerp(a[2],b[2],t)/255;
+    return 0.2126*r + 0.7152*g + 0.0722*bl;
+  }
+
+  function seqColors() {
+    var style = getComputedStyle(document.documentElement);
+    return {
+      low: style.getPropertyValue('--seq-low').trim(),
+      high: style.getPropertyValue('--seq-high').trim()
+    };
+  }
+
+  var tooltip = document.getElementById('tooltip');
+  function showTooltip(evt, cell) {
+    tooltip.innerHTML = '';
+    var title = document.createElement('div');
+    title.className = 'tt-title';
+    title.textContent = cell.gap;
+    tooltip.appendChild(title);
+    var sub = document.createElement('div');
+    sub.style.color = 'var(--text-muted)';
+    sub.style.fontSize = '11px';
+    sub.style.marginBottom = '4px';
+    sub.textContent = cell.form;
+    tooltip.appendChild(sub);
+    [['Team-seasons', cell.count], ['% of row', (cell.row_pct*100).toFixed(1)+'%'], ['% of column', (cell.col_pct*100).toFixed(1)+'%']]
+      .forEach(function (r) {
+        var row = document.createElement('div');
+        row.className = 'tt-row';
+        var name = document.createElement('span'); name.textContent = r[0];
+        var val = document.createElement('b'); val.textContent = r[1];
+        row.appendChild(name); row.appendChild(val);
+        tooltip.appendChild(row);
+      });
+    tooltip.style.display = 'block';
+    var tx = evt.clientX + 14, ty = evt.clientY + 14;
+    var tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
+    if (tx + tw > window.innerWidth - 8) tx = evt.clientX - tw - 14;
+    if (ty + th > window.innerHeight - 8) ty = evt.clientY - th - 14;
+    tooltip.style.left = tx + 'px';
+    tooltip.style.top = ty + 'px';
+  }
+  function hideTooltip() { tooltip.style.display = 'none'; }
+
+  function buildHeatmap() {
+    var table = document.getElementById('heatmapTable');
+    table.innerHTML = '';
+    var colors = seqColors();
+
+    var thead = document.createElement('tr');
+    var corner = document.createElement('th');
+    corner.className = 'corner';
+    thead.appendChild(corner);
+    data.form_order.forEach(function (f) {
+      var th = document.createElement('th');
+      th.className = 'col-head';
+      th.textContent = f;
+      var n = document.createElement('span');
+      n.className = 'n';
+      n.textContent = 'n=' + data.form_n[f];
+      th.appendChild(n);
+      thead.appendChild(th);
+    });
+    table.appendChild(thead);
+
+    data.gap_order.forEach(function (g) {
+      var tr = document.createElement('tr');
+      var rowHead = document.createElement('th');
+      rowHead.className = 'row-head';
+      rowHead.textContent = g;
+      var n = document.createElement('span');
+      n.className = 'n';
+      n.textContent = 'n=' + data.gap_n[g];
+      rowHead.appendChild(n);
+      tr.appendChild(rowHead);
+
+      data.form_order.forEach(function (f) {
+        var cell = cellMap[g + '|||' + f];
+        var td = document.createElement('td');
+        td.className = 'cell';
+        td.tabIndex = 0;
+        var t = cell.row_pct;
+        td.style.background = mix(colors.low, colors.high, t);
+        var lum = luminance(colors.low, colors.high, t);
+        var ink = lum > 0.5 ? '#0b0b0b' : '#ffffff';
+        td.style.color = ink;
+
+        var countEl = document.createElement('div');
+        countEl.className = 'count';
+        countEl.textContent = cell.count;
+        var pctEl = document.createElement('div');
+        pctEl.className = 'pct';
+        pctEl.textContent = (cell.row_pct * 100).toFixed(0) + '% of row';
+        td.appendChild(countEl);
+        td.appendChild(pctEl);
+
+        td.addEventListener('pointermove', function (evt) { showTooltip(evt, cell); });
+        td.addEventListener('pointerleave', hideTooltip);
+        td.addEventListener('focus', function (evt) { showTooltip(evt, cell); });
+        td.addEventListener('blur', hideTooltip);
+
+        tr.appendChild(td);
+      });
+      table.appendChild(tr);
+    });
+  }
+
+  function buildPlainTable() {
+    var body = document.getElementById('plainBody');
+    body.innerHTML = '';
+    data.cells.forEach(function (c) {
+      var tr = document.createElement('tr');
+      [c.gap, c.form, c.count, (c.row_pct*100).toFixed(1)+'%', (c.col_pct*100).toFixed(1)+'%'].forEach(function (v) {
+        var td = document.createElement('td');
+        td.textContent = v;
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+  }
+
+  buildHeatmap();
+  buildPlainTable();
+
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', buildHeatmap);
+})();
+</script>
+</body>
+</html>

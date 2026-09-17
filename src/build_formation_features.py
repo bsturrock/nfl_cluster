@@ -47,6 +47,8 @@ Features:
     scrambles (rusher_player_id matches a player with a pass attempt that
     season, qb_scramble != 1). Scrambles are broken plays, not scheme; this
     isolates actual called QB run game (draws, sneaks, zone-read keepers).
+  - rpo_rate / no_huddle_rate: share of all plays that are run-pass options
+    / no-huddle (FTN `is_rpo`, `is_no_huddle`).
 
 Restricted to neutral game script (see neutral_script.py) so features reflect
 scheme preference rather than score/clock-driven play calling.
@@ -154,12 +156,17 @@ def main():
     rush_dist = personnel_dist(plays[plays["rush_attempt"] == 1], all_codes)
 
     pa_merged = plays.merge(
-        ftn[["nflverse_game_id", "nflverse_play_id", "is_play_action", "is_qb_out_of_pocket", "is_motion"]],
+        ftn[[
+            "nflverse_game_id", "nflverse_play_id", "is_play_action", "is_qb_out_of_pocket",
+            "is_motion", "is_rpo", "is_no_huddle",
+        ]],
         left_on=["game_id", "play_id"],
         right_on=["nflverse_game_id", "nflverse_play_id"],
         how="inner",
     )
     motion_rate = pa_merged.groupby(["season", "posteam"])["is_motion"].mean().rename("motion_rate")
+    rpo_rate = pa_merged.groupby(["season", "posteam"])["is_rpo"].mean().rename("rpo_rate")
+    no_huddle_rate = pa_merged.groupby(["season", "posteam"])["is_no_huddle"].mean().rename("no_huddle_rate")
     dropbacks = pa_merged[pa_merged["qb_dropback"] == 1]
     pa_plays = dropbacks[dropbacks["is_play_action"] == 1]
     pa_dist = personnel_dist(pa_plays, all_codes)
@@ -200,6 +207,8 @@ def main():
         .join(pa_boot_rate)
         .join(motion_rate)
         .join(designed_qb_run_rate)
+        .join(rpo_rate)
+        .join(no_huddle_rate)
         .reset_index()
     )
 

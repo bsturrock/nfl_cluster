@@ -8,16 +8,18 @@ separation badly - see commit history), and writes both the cluster
 assignments (output/scheme_clusters.csv) and an interactive scatter
 (output/scheme_clusters.html).
 
-Feature set (10; screen_rate was tried and dropped - redundant with adot at
+Feature set (12; screen_rate was tried and dropped - redundant with adot at
 r=-0.38 and the weakest standalone signal of the candidates tested):
   pct_under_center, pct_top_personnel, rush_rate, pa_personnel_match,
   disguise_entropy, outside_run_rate, pa_boot_rate, adot, motion_rate,
-  designed_qb_run_rate
+  designed_qb_run_rate, rpo_rate, no_huddle_rate
 
-k=3 chosen by silhouette over k=2-10 (0.389, next best 0.374 at k=4) - a
-secondary peak at k=7 seen with an earlier 5-feature version disappears
-once motion/designed-QB-run/adot/outside-run are added, so it was an
-artifact of the smaller feature set, not real extra structure.
+rpo_rate correlates -0.51 with pct_under_center (RPOs are almost always
+run from shotgun) and 0.38 with disguise_entropy - the largest correlation
+among kept features, but not so large it's a restatement of either.
+
+k chosen by silhouette, re-checked each time features change - the value
+that was best for an earlier feature set is not assumed to still be best.
 """
 import json
 
@@ -40,6 +42,8 @@ FEATURE_META = {
     "adot": {"label": "aDOT", "fmt": "num"},
     "motion_rate": {"label": "Motion rate", "fmt": "pct"},
     "designed_qb_run_rate": {"label": "Designed QB run rate", "fmt": "pct"},
+    "rpo_rate": {"label": "RPO rate", "fmt": "pct"},
+    "no_huddle_rate": {"label": "No-huddle rate", "fmt": "pct"},
 }
 FEATURES = list(FEATURE_META.keys())
 

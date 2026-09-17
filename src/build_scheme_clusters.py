@@ -18,8 +18,12 @@ rpo_rate correlates -0.51 with pct_under_center (RPOs are almost always
 run from shotgun) and 0.38 with disguise_entropy - the largest correlation
 among kept features, but not so large it's a restatement of either.
 
-k chosen by silhouette, re-checked each time features change - the value
-that was best for an earlier feature set is not assumed to still be best.
+k=6 chosen by silhouette over k=2-10 (0.402, next best 0.389 at k=5) -
+re-checked each time features change, since the value that was best for an
+earlier feature set is not assumed to still be best. Unlike earlier
+higher-k attempts (which mostly fragmented into singleton-team outlier
+clusters), k=6 here surfaces one genuinely new, coherent group: PHI/IND on
+RPO rate, plausibly tied to Shane Steichen's move from PHI OC to IND HC.
 """
 import json
 
@@ -29,7 +33,7 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
-K = 3
+K = 6
 
 FEATURE_META = {
     "pct_under_center": {"label": "Under center %", "fmt": "pct"},
@@ -48,9 +52,12 @@ FEATURE_META = {
 FEATURES = list(FEATURE_META.keys())
 
 CLUSTER_LABELS = {
-    0: "Mainstream / credible run-pass mix",
+    0: "Mainstream, high motion",
     1: "Run-heavy, dual-threat QB",
-    2: "Shotgun, quick-game, pocket passer",
+    2: "RPO-heavy, shotgun, most disguised",
+    3: "Mainstream, moderate",
+    4: "Shotgun, quick-game, pocket passer",
+    5: "No-huddle outlier",
 }
 
 TEMPLATE_PATH = "src/templates/scheme_clusters_template.html"
@@ -93,10 +100,17 @@ def main():
         "cluster_labels": CLUSTER_LABELS,
         "feature_meta": FEATURE_META,
         "feature_order": FEATURES,
+        "subtitle": (
+            f"128 team-seasons (2022-2025), clustered on {len(FEATURES)} features spanning run gap mix, "
+            f"formation, personnel, disguise, and passing depth. Clustering on the raw standardized "
+            f"features dilutes separation badly ({len(FEATURES)} mostly-independent axes spread points "
+            f"out evenly); instead this clusters on the top 2 principal components of those features, "
+            f"which recovers real separation."
+        ),
         "pc_note": (
             f"PC1/PC2 explain {pca.explained_variance_ratio_.sum()*100:.0f}% of variance across "
-            f"all 10 features. Clustering runs on these 2 components, not the raw features directly, "
-            f"which recovers real separation (silhouette {sil:.2f} vs ~0.17 on raw features)."
+            f"all {len(FEATURES)} features. Clustering runs on these 2 components, not the raw features "
+            f"directly, which recovers real separation (silhouette {sil:.2f} vs ~0.17 on raw features)."
         ),
         "stat_line": (
             f"k={K} via k-means on PC1/PC2 · silhouette={sil:.3f} · 128 team-seasons, 2022-2025"

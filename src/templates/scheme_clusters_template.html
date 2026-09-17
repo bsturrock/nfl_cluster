@@ -157,14 +157,7 @@
 <body>
 <div class="wrap">
   <h1>NFL Offensive Scheme Clusters</h1>
-  <p class="subtitle">
-    128 team-seasons (2022&ndash;2025), clustered on 10 features spanning run
-    gap mix, formation, personnel, disguise, and passing depth. Clustering on
-    the raw standardized features dilutes separation badly (10 mostly-
-    independent axes spread points out evenly); instead this clusters on the
-    top 2 principal components of those features, which recovers real
-    separation.
-  </p>
+  <p class="subtitle" id="subtitleText"></p>
   <p class="stat-line" id="statLine"></p>
 
   <section>
@@ -211,8 +204,13 @@ __DATA_JSON__
 
   document.getElementById('statLine').textContent = statText;
   document.getElementById('pcNote').textContent = pcNoteText;
+  document.getElementById('subtitleText').textContent = raw.subtitle;
 
-  var CLUSTER_COLOR = ['#2a78d6', '#eb6834', '#1baf7a'];
+  // Each panel highlights exactly one cluster against gray context, and the
+  // table pairs every dot with its cluster-name text, so a single shared
+  // accent color (rather than N mutually-distinguishable hues) is enough -
+  // identity comes from the panel title / text label, not the color alone.
+  var HIGHLIGHT_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--series-highlight').trim() || '#2a78d6';
 
   // ---------- shared PC domain across panels ----------
   var pc1s = points.map(function (p) { return p.pc1; });
@@ -316,8 +314,7 @@ __DATA_JSON__
 
     clusterPoints.forEach(function (p) {
       var hit = el('circle', { cx: sx(p.pc1), cy: sy(p.pc2), r: 12, class: 'dot-hit' });
-      var dot = el('circle', { cx: sx(p.pc1), cy: sy(p.pc2), r: 4, class: 'dot-highlight',
-        style: 'fill:' + CLUSTER_COLOR[clusterId] });
+      var dot = el('circle', { cx: sx(p.pc1), cy: sy(p.pc2), r: 4, class: 'dot-highlight' });
       hit.addEventListener('pointermove', function (evt) { showTooltip(evt, p); });
       hit.addEventListener('pointerleave', hideTooltip);
       hit.addEventListener('focus', function (evt) { showTooltip(evt, p); });
@@ -394,7 +391,7 @@ __DATA_JSON__
       var tdCluster = document.createElement('td');
       var dot = document.createElement('span');
       dot.className = 'cluster-dot';
-      dot.style.background = CLUSTER_COLOR[p.cluster];
+      dot.style.background = HIGHLIGHT_COLOR;
       tdCluster.appendChild(dot);
       tdCluster.appendChild(document.createTextNode(clusterLabels[p.cluster]));
       tr.appendChild(tdCluster);

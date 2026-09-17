@@ -14,6 +14,7 @@ Features:
   - top_personnel_code: which grouping that is, for reference
   - personnel_hhi: concentration across personnel groupings
   - n_personnel_groups_5plus: distinct personnel groups used 5+ times in the season
+  - rush_rate: rush attempts / (rush + pass plays), kneels/spikes excluded
 
 Restricted to neutral game script (see neutral_script.py) so features reflect
 scheme preference rather than score/clock-driven play calling.
@@ -52,6 +53,14 @@ def main():
 
     plays = pbp[(pbp["play_type"].isin(["run", "pass"])) & (pbp["posteam"].notna())].copy()
     plays = filter_neutral_script(plays)
+    plays = plays[(plays["qb_kneel"] != 1) & (plays["qb_spike"] != 1)]
+
+    rush_rate = (
+        plays.groupby(["season", "posteam"])["rush_attempt"]
+        .mean()
+        .rename("rush_rate")
+    )
+
     plays = plays[plays["offense_formation"].isin(["SHOTGUN", "UNDER CENTER", "PISTOL"])]
     plays["personnel_code"] = plays["offense_personnel"].apply(parse_personnel_code)
 
@@ -77,6 +86,7 @@ def main():
         .join(top_personnel_code)
         .join(pers_hhi)
         .join(n_groups)
+        .join(rush_rate)
         .reset_index()
     )
 

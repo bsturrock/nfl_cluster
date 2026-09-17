@@ -21,6 +21,14 @@ Features:
     proportional to how much the team really runs from them (a credible
     fake); low = PA is concentrated in personnel the team doesn't really run
     from at that rate (more of a "tell"). FTN charting, 2022+.
+  - disguise_entropy: run/pass predictability given formation+personnel.
+    For each (formation, personnel) combo a team uses 10+ times, compute the
+    binary entropy of its rush rate (1 bit = 50/50 run-pass from that look,
+    0 bits = always one or the other), then average across combos weighted
+    by play count. High = the defense can't read run/pass off formation and
+    personnel alone; low = certain looks tip the play. Distinct from
+    n_personnel_groups_5plus (how many different looks they show) - this is
+    whether each individual look is itself disguised.
 
 Restricted to neutral game script (see neutral_script.py) so features reflect
 scheme preference rather than score/clock-driven play calling.
@@ -38,12 +46,18 @@ from neutral_script import filter_neutral_script
 SEASONS = [2022, 2023, 2024, 2025]
 N_TOP_PERSONNEL = 8
 MIN_PERSONNEL_USES = 5
+MIN_ENTROPY_BUCKET_N = 10
 
 
 def personnel_dist(plays_subset, all_codes):
     dist = plays_subset.groupby(["season", "posteam", "personnel_code"]).size().unstack(fill_value=0)
     dist = dist.reindex(columns=all_codes, fill_value=0)
     return dist.div(dist.sum(axis=1), axis=0)
+
+
+def binary_entropy(p):
+    p = np.clip(p.astype("float64"), 1e-6, 1 - 1e-6)
+    return -(p * np.log2(p) + (1 - p) * np.log2(1 - p))
 
 
 def parse_personnel_code(s):
@@ -107,6 +121,20 @@ def main():
     tvd = 0.5 * (rush_dist - pa_dist).abs().sum(axis=1)
     pa_personnel_match = (1 - tvd).rename("pa_personnel_match")
 
+    plays["formpers_bucket"] = plays["offense_formation"].str.title().str.replace(" ", "") + "_" + plays["personnel_code"]
+    bucket = plays.groupby(["season", "posteam", "formpers_bucket"]).agg(
+        n=("rush_attempt", "size"), rush_rate=("rush_attempt", "mean")
+    )
+    bucket = bucket[bucket["n"] >= MIN_ENTROPY_BUCKET_N].reset_index()
+    bucket["entropy"] = binary_entropy(bucket["rush_rate"])
+    disguise_entropy = (
+        bucket.groupby(["season", "posteam"])
+        .apply(lambda g: pd.Series({
+            "disguise_entropy": (g["entropy"] * g["n"]).sum() / g["n"].sum(),
+            "n_disguise_buckets": len(g),
+        }))
+    )
+
     out = (
         form_pct.join(form_hhi)
         .join(shotgun_or_pistol)
@@ -117,6 +145,7 @@ def main():
         .join(n_groups)
         .join(rush_rate)
         .join(pa_personnel_match)
+        .join(disguise_entropy)
         .reset_index()
     )
 

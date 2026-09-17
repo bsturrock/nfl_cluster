@@ -8,6 +8,10 @@ Features:
     tracked separately (shotgun/under center/pistol)
   - pct_pers_<code>: share of plays in each of the 8 most common personnel
     groupings (RB/TE counts parsed from offense_personnel, e.g. "11" = 1 RB, 1 TE)
+  - pct_top_personnel: share of plays in the team's single most-used personnel
+    grouping, whatever it is (e.g. 2022 LA is ~97% regardless of which code
+    dominates) - doesn't care *which* grouping, just how concentrated it is
+  - top_personnel_code: which grouping that is, for reference
   - personnel_hhi: concentration across personnel groupings
   - n_personnel_groups_5plus: distinct personnel groups used 5+ times in the season
 
@@ -56,11 +60,15 @@ def main():
     top_codes = pers.sum(axis=0).sort_values(ascending=False).head(N_TOP_PERSONNEL).index.tolist()
     pers_hhi = pers_pct.apply(hhi, axis=1).rename("personnel_hhi")
     n_groups = (pers > MIN_PERSONNEL_USES).sum(axis=1).rename("n_personnel_groups_5plus")
+    pct_top_personnel = pers_pct.max(axis=1).rename("pct_top_personnel")
+    top_personnel_code = pers_pct.idxmax(axis=1).rename("top_personnel_code")
 
     out = (
         form_pct.join(form_hhi)
         .join(shotgun_or_pistol)
         .join(pers_pct[top_codes].add_prefix("pct_pers_"))
+        .join(pct_top_personnel)
+        .join(top_personnel_code)
         .join(pers_hhi)
         .join(n_groups)
         .reset_index()

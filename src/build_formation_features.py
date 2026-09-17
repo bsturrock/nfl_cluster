@@ -35,6 +35,11 @@ Features:
     personnel alone; low = certain looks tip the play. Distinct from
     n_personnel_groups_5plus (how many different looks they show) - this is
     whether each individual look is itself disguised.
+  - boot_rate / pa_boot_rate: share of all dropbacks / share of play-action
+    dropbacks where the QB is out of the pocket (FTN `is_qb_out_of_pocket`).
+    A rollout/naked-bootleg proxy - the signature Shanahan-tree move (PA off
+    zone-run action with the QB moving), which personnel grouping doesn't
+    capture at all.
 
 Restricted to neutral game script (see neutral_script.py) so features reflect
 scheme preference rather than score/clock-driven play calling.
@@ -131,17 +136,21 @@ def main():
     rush_dist = personnel_dist(plays[plays["rush_attempt"] == 1], all_codes)
 
     pa_merged = plays.merge(
-        ftn[["nflverse_game_id", "nflverse_play_id", "is_play_action"]],
+        ftn[["nflverse_game_id", "nflverse_play_id", "is_play_action", "is_qb_out_of_pocket"]],
         left_on=["game_id", "play_id"],
         right_on=["nflverse_game_id", "nflverse_play_id"],
         how="inner",
     )
-    pa_plays = pa_merged[(pa_merged["qb_dropback"] == 1) & (pa_merged["is_play_action"] == 1)]
+    dropbacks = pa_merged[pa_merged["qb_dropback"] == 1]
+    pa_plays = dropbacks[dropbacks["is_play_action"] == 1]
     pa_dist = personnel_dist(pa_plays, all_codes)
     pa_dist = pa_dist.reindex(rush_dist.index, fill_value=0)
 
     tvd = 0.5 * (rush_dist - pa_dist).abs().sum(axis=1)
     pa_personnel_match = (1 - tvd).rename("pa_personnel_match")
+
+    boot_rate = dropbacks.groupby(["season", "posteam"])["is_qb_out_of_pocket"].mean().rename("boot_rate")
+    pa_boot_rate = pa_plays.groupby(["season", "posteam"])["is_qb_out_of_pocket"].mean().rename("pa_boot_rate")
 
     plays["formpers_bucket"] = plays["offense_formation"].str.title().str.replace(" ", "") + "_" + plays["personnel_code"]
     bucket = plays.groupby(["season", "posteam", "formpers_bucket"]).agg(
@@ -168,6 +177,8 @@ def main():
         .join(rush_rate)
         .join(pa_personnel_match)
         .join(disguise_entropy)
+        .join(boot_rate)
+        .join(pa_boot_rate)
         .reset_index()
     )
 

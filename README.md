@@ -28,6 +28,7 @@ excluded).
 pip install -r requirements.txt
 python3 src/build_features.py   # -> data/team_season_features.csv
 python3 src/cluster.py          # -> output/team_season_clusters.csv
+python3 src/build_viz.py        # -> output/cluster_viz.html (interactive)
 ```
 
 ## Notes

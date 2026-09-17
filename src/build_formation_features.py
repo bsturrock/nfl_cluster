@@ -1,5 +1,11 @@
 """Build team-season formation/personnel features from nflverse pbp data.
 
+`offense_formation` only has 3 categories in 2023-2025 (shotgun/under
+center/pistol), but 2022 used a richer set (singleback/empty/i_form/jumbo/
+wildcat on top of shotgun/pistol - see FORMATION_MAP). Those get remapped
+into the shared 3-way taxonomy rather than dropped, since an exact-match
+filter would otherwise silently discard ~44% of 2022's plays.
+
 Features:
   - pct_shotgun / pct_under_center / pct_pistol (from offense_formation)
   - pct_shotgun_or_pistol: the shotgun-vs-under-center binary, with pistol
@@ -60,6 +66,21 @@ def binary_entropy(p):
     return -(p * np.log2(p) + (1 - p) * np.log2(1 - p))
 
 
+FORMATION_MAP = {
+    "SHOTGUN": "SHOTGUN",
+    "UNDER CENTER": "UNDER CENTER",
+    "PISTOL": "PISTOL",
+    # 2022 only: nflverse tagged granular sub-formations instead of a single
+    # "UNDER CENTER" bucket. Remap to the 3-way taxonomy 2023+ uses natively,
+    # rather than dropping ~44% of 2022 plays by filtering on an exact match.
+    "SINGLEBACK": "UNDER CENTER",
+    "I_FORM": "UNDER CENTER",
+    "JUMBO": "UNDER CENTER",
+    "WILDCAT": "UNDER CENTER",
+    "EMPTY": "SHOTGUN",  # empty backfield is snapped from shotgun depth
+}
+
+
 def parse_personnel_code(s):
     if pd.isna(s):
         return np.nan
@@ -88,7 +109,8 @@ def main():
         .rename("rush_rate")
     )
 
-    plays = plays[plays["offense_formation"].isin(["SHOTGUN", "UNDER CENTER", "PISTOL"])]
+    plays["offense_formation"] = plays["offense_formation"].map(FORMATION_MAP)
+    plays = plays[plays["offense_formation"].notna()]
     plays["personnel_code"] = plays["offense_personnel"].apply(parse_personnel_code)
 
     form = plays.groupby(["season", "posteam", "offense_formation"]).size().unstack(fill_value=0)

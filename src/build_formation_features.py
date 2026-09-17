@@ -2,7 +2,10 @@
 
 Features:
   - pct_shotgun / pct_under_center / pct_pistol (from offense_formation)
-  - formation_hhi: concentration (Herfindahl index) across those 3 formations
+  - pct_shotgun_or_pistol: the shotgun-vs-under-center binary, with pistol
+    counted as "not under center" (pistol is a shotgun-depth snap)
+  - formation_hhi: concentration (Herfindahl index) across the 3 formations
+    tracked separately (shotgun/under center/pistol)
   - pct_pers_<code>: share of plays in each of the 8 most common personnel
     groupings (RB/TE counts parsed from offense_personnel, e.g. "11" = 1 RB, 1 TE)
   - personnel_hhi: concentration across personnel groupings
@@ -46,6 +49,7 @@ def main():
     form_pct = form.div(form.sum(axis=1), axis=0)
     form_pct.columns = [f"pct_{c.lower().replace(' ', '_')}" for c in form_pct.columns]
     form_hhi = form_pct.apply(hhi, axis=1).rename("formation_hhi")
+    shotgun_or_pistol = (form_pct["pct_shotgun"] + form_pct["pct_pistol"]).rename("pct_shotgun_or_pistol")
 
     pers = plays.groupby(["season", "posteam", "personnel_code"]).size().unstack(fill_value=0)
     pers_pct = pers.div(pers.sum(axis=1), axis=0)
@@ -55,6 +59,7 @@ def main():
 
     out = (
         form_pct.join(form_hhi)
+        .join(shotgun_or_pistol)
         .join(pers_pct[top_codes].add_prefix("pct_pers_"))
         .join(pers_hhi)
         .join(n_groups)

@@ -40,6 +40,13 @@ Features:
     A rollout/naked-bootleg proxy - the signature Shanahan-tree move (PA off
     zone-run action with the QB moving), which personnel grouping doesn't
     capture at all.
+  - motion_rate: share of all plays (run+pass) with pre-snap motion (FTN
+    `is_motion`). Coach-driven, not QB-dependent - year-over-year stability
+    (~0.67) is close to pct_under_center's, much stickier than adot's (~0.23).
+  - designed_qb_run_rate: share of plays that are a QB rush excluding
+    scrambles (rusher_player_id matches a player with a pass attempt that
+    season, qb_scramble != 1). Scrambles are broken plays, not scheme; this
+    isolates actual called QB run game (draws, sneaks, zone-read keepers).
 
 Restricted to neutral game script (see neutral_script.py) so features reflect
 scheme preference rather than score/clock-driven play calling.
@@ -104,6 +111,8 @@ def main():
     pbp = nfl.import_pbp_data(SEASONS, downcast=True, cache=False)
     ftn = nfl.import_ftn_data(SEASONS, downcast=True)
 
+    qb_ids = pbp[pbp["pass_attempt"] == 1].groupby("season")["passer_player_id"].apply(set).to_dict()
+
     plays = pbp[(pbp["play_type"].isin(["run", "pass"])) & (pbp["posteam"].notna())].copy()
     plays = filter_neutral_script(plays)
     plays = plays[(plays["qb_kneel"] != 1) & (plays["qb_spike"] != 1)]
@@ -113,6 +122,15 @@ def main():
         .mean()
         .rename("rush_rate")
     )
+
+    is_qb_rusher = plays.apply(
+        lambda r: r["rusher_player_id"] in qb_ids.get(r["season"], set()), axis=1
+    )
+    designed_qb_run = (plays["rush_attempt"] == 1) & is_qb_rusher & (plays["qb_scramble"] != 1)
+    designed_qb_run_rate = (
+        designed_qb_run.groupby([plays["season"], plays["posteam"]]).sum()
+        / plays.groupby(["season", "posteam"]).size()
+    ).rename("designed_qb_run_rate")
 
     plays["offense_formation"] = plays["offense_formation"].map(FORMATION_MAP)
     plays = plays[plays["offense_formation"].notna()]
@@ -136,11 +154,12 @@ def main():
     rush_dist = personnel_dist(plays[plays["rush_attempt"] == 1], all_codes)
 
     pa_merged = plays.merge(
-        ftn[["nflverse_game_id", "nflverse_play_id", "is_play_action", "is_qb_out_of_pocket"]],
+        ftn[["nflverse_game_id", "nflverse_play_id", "is_play_action", "is_qb_out_of_pocket", "is_motion"]],
         left_on=["game_id", "play_id"],
         right_on=["nflverse_game_id", "nflverse_play_id"],
         how="inner",
     )
+    motion_rate = pa_merged.groupby(["season", "posteam"])["is_motion"].mean().rename("motion_rate")
     dropbacks = pa_merged[pa_merged["qb_dropback"] == 1]
     pa_plays = dropbacks[dropbacks["is_play_action"] == 1]
     pa_dist = personnel_dist(pa_plays, all_codes)
@@ -179,6 +198,8 @@ def main():
         .join(disguise_entropy)
         .join(boot_rate)
         .join(pa_boot_rate)
+        .join(motion_rate)
+        .join(designed_qb_run_rate)
         .reset_index()
     )
 

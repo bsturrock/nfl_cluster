@@ -15,6 +15,12 @@ Features:
   - personnel_hhi: concentration across personnel groupings
   - n_personnel_groups_5plus: distinct personnel groups used 5+ times in the season
   - rush_rate: rush attempts / (rush + pass plays), kneels/spikes excluded
+  - pa_personnel_match: how closely a team's play-action personnel mix tracks
+    its actual rush personnel mix (1 - total variation distance between the
+    two distributions). High = PA comes from personnel groups roughly
+    proportional to how much the team really runs from them (a credible
+    fake); low = PA is concentrated in personnel the team doesn't really run
+    from at that rate (more of a "tell"). FTN charting, 2022+.
 
 Restricted to neutral game script (see neutral_script.py) so features reflect
 scheme preference rather than score/clock-driven play calling.
@@ -34,6 +40,12 @@ N_TOP_PERSONNEL = 8
 MIN_PERSONNEL_USES = 5
 
 
+def personnel_dist(plays_subset, all_codes):
+    dist = plays_subset.groupby(["season", "posteam", "personnel_code"]).size().unstack(fill_value=0)
+    dist = dist.reindex(columns=all_codes, fill_value=0)
+    return dist.div(dist.sum(axis=1), axis=0)
+
+
 def parse_personnel_code(s):
     if pd.isna(s):
         return np.nan
@@ -50,6 +62,7 @@ def hhi(row):
 
 def main():
     pbp = nfl.import_pbp_data(SEASONS, downcast=True, cache=False)
+    ftn = nfl.import_ftn_data(SEASONS, downcast=True)
 
     plays = pbp[(pbp["play_type"].isin(["run", "pass"])) & (pbp["posteam"].notna())].copy()
     plays = filter_neutral_script(plays)
@@ -78,6 +91,22 @@ def main():
     pct_top_personnel = pers_pct.max(axis=1).rename("pct_top_personnel")
     top_personnel_code = pers_pct.idxmax(axis=1).rename("top_personnel_code")
 
+    all_codes = pers_pct.columns.tolist()
+    rush_dist = personnel_dist(plays[plays["rush_attempt"] == 1], all_codes)
+
+    pa_merged = plays.merge(
+        ftn[["nflverse_game_id", "nflverse_play_id", "is_play_action"]],
+        left_on=["game_id", "play_id"],
+        right_on=["nflverse_game_id", "nflverse_play_id"],
+        how="inner",
+    )
+    pa_plays = pa_merged[(pa_merged["qb_dropback"] == 1) & (pa_merged["is_play_action"] == 1)]
+    pa_dist = personnel_dist(pa_plays, all_codes)
+    pa_dist = pa_dist.reindex(rush_dist.index, fill_value=0)
+
+    tvd = 0.5 * (rush_dist - pa_dist).abs().sum(axis=1)
+    pa_personnel_match = (1 - tvd).rename("pa_personnel_match")
+
     out = (
         form_pct.join(form_hhi)
         .join(shotgun_or_pistol)
@@ -87,6 +116,7 @@ def main():
         .join(pers_hhi)
         .join(n_groups)
         .join(rush_rate)
+        .join(pa_personnel_match)
         .reset_index()
     )
 

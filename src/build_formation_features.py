@@ -15,6 +15,9 @@ Features:
   - personnel_hhi: concentration across personnel groupings
   - n_personnel_groups_5plus: distinct personnel groups used 5+ times in the season
 
+Restricted to neutral game script (see neutral_script.py) so features reflect
+scheme preference rather than score/clock-driven play calling.
+
 Output: data/formation_personnel_features.csv
 """
 import re
@@ -22,6 +25,8 @@ import re
 import nfl_data_py as nfl
 import numpy as np
 import pandas as pd
+
+from neutral_script import filter_neutral_script
 
 SEASONS = [2022, 2023, 2024, 2025]
 N_TOP_PERSONNEL = 8
@@ -46,6 +51,7 @@ def main():
     pbp = nfl.import_pbp_data(SEASONS, downcast=True, cache=False)
 
     plays = pbp[(pbp["play_type"].isin(["run", "pass"])) & (pbp["posteam"].notna())].copy()
+    plays = filter_neutral_script(plays)
     plays = plays[plays["offense_formation"].isin(["SHOTGUN", "UNDER CENTER", "PISTOL"])]
     plays["personnel_code"] = plays["offense_personnel"].apply(parse_personnel_code)
 

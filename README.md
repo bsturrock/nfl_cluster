@@ -15,7 +15,11 @@ coarse gap (end/tackle/guard), which is what's used here as a scheme proxy.
 ## Features (v1)
 
 Grain: team-season, 2022-2025, playcalled rushes only (scrambles/kneels
-excluded).
+excluded). Restricted to **neutral game script** (`src/neutral_script.py`:
+win probability 20-80%, outside the final 2 minutes of either half) so the
+numbers reflect scheme preference rather than score/clock-driven play
+calling. This roughly halves the play sample per team-season (~260 rushes,
+~360 dropbacks on average) but is still plenty for these features.
 
 - `pct_end`, `pct_tackle`, `pct_guard`, `pct_middle`: share of rush attempts
   by gap bucket (sums to 1; `pct_middle` held out of clustering to avoid

@@ -4,10 +4,15 @@ Features (v1):
   - run gap mix: share of playcalled rushes that go end / tackle / guard / middle
   - play-action rate: share of dropbacks that are play-action (FTN charting, 2022+)
 
+Restricted to neutral game script (see neutral_script.py) so features reflect
+scheme preference rather than score/clock-driven play calling.
+
 Output: data/team_season_features.csv
 """
 import nfl_data_py as nfl
 import pandas as pd
+
+from neutral_script import filter_neutral_script
 
 SEASONS = [2022, 2023, 2024, 2025]
 
@@ -74,6 +79,7 @@ def build_play_action_rate(pbp: pd.DataFrame, ftn: pd.DataFrame) -> pd.DataFrame
 
 def main():
     pbp = load_pbp(SEASONS)
+    pbp = filter_neutral_script(pbp)
     ftn = load_ftn(SEASONS)
 
     gap_mix = build_gap_mix(pbp)

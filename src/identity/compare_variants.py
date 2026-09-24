@@ -1,8 +1,9 @@
 """Compare alternative feature treatments against the current identity model.
 
 Variants (all k-means, scored the same way as cluster_identity.py: silhouette
-vs a same-covariance Gaussian null, bootstrap ARI, year-over-year persistence,
-and ARI against the model's k=5 assignments):
+vs the copula null (same rank correlations and marginals) and vs a Gaussian
+null, bootstrap ARI, year-over-year persistence, and ARI against the model's
+k=5 assignments):
 
   pca_19           19 within-season z-scores -> PCA (parallel analysis);
                    the model's original approach
@@ -28,20 +29,15 @@ warnings.filterwarnings("ignore")
 
 import sys  # noqa: E402
 sys.path.insert(0, "src/identity")
-from cluster_identity import select_features  # noqa: E402
+from cluster_identity import copula_null, gaussian_null, select_features  # noqa: E402
+from themes import THEMES as THEMES_REFINED  # noqa: E402
+
+# "themes" = the model's themes plus the two features that fit no theme
+THEMES = {n: dict(w) for n, w in THEMES_REFINED.items()}
+THEMES["dropback_play_action"]["screen"] = -1
+THEMES["te_heavy"]["extra_ol"] = 1
 OUT = "output/identity"
-SKEWED = ["pistol", "two_back", "extra_ol", "no_huddle", "qb_design_run", "rpo"]
-THEMES = {
-    "under_center_vs_gun_rpo": {"under_center": 1, "rpo": -1},
-    "dropback_play_action": {"play_action": 1, "time_to_throw": 1, "screen": -1},
-    "wide_zone_package": {"two_back": 1, "motion": 1, "outside_run": 1, "pistol": 1, "rb_target_share": 1},
-    "te_heavy": {"multi_te": 1, "te_target_share": 1, "extra_ol": 1},
-    "qb_run_game": {"qb_design_run": 1, "qb_out_of_pocket": 1},
-    "tempo": {"no_huddle": 1},
-    "pass_first": {"proe_early": 1, "empty_backfield": 1},
-}
-DROP_REFINED = {"extra_ol", "screen"}
-THEMES_REFINED = {n: {f: s for f, s in w.items() if f not in DROP_REFINED} for n, w in THEMES.items()}
+SKEWED = ["pistol_of_gun", "avg_backs", "extra_ol", "no_huddle", "qb_run_share", "rpo"]
 
 
 def main():
@@ -97,22 +93,27 @@ def main():
 
     rows = []
     for name, X in variants.items():
-        cov = np.cov(X.T)
         for k in range(3, 10):
             lab = KMeans(k, n_init=50, random_state=0).fit_predict(X)
             sil = silhouette_score(X, lab)
-            null = []
-            for b in range(30):
-                N = rng.multivariate_normal(np.zeros(X.shape[1]), cov, len(X))
-                if name == "binned_3":  # bin the null the same way, before its PCA
-                    Nz = rng.multivariate_normal(np.zeros(len(feats)), np.cov(z_raw.values.T), len(X))
-                    N = PCA(X.shape[1]).fit_transform(np.where(Nz > 0.43, 1.0, np.where(Nz < -0.43, -1.0, 0.0)))
-                null.append(silhouette_score(N, KMeans(k, n_init=10, random_state=b).fit_predict(N)))
+            nulls = {}
+            for tag, draw in (("copula", copula_null), ("gaussian", gaussian_null)):
+                sils = []
+                for b in range(30):
+                    if name == "binned_3":  # draw on the z-scores, then bin + PCA exactly like the data
+                        Nz = draw(z_raw.values, rng)
+                        N = PCA(X.shape[1]).fit_transform(np.where(Nz > 0.43, 1.0, np.where(Nz < -0.43, -1.0, 0.0)))
+                    else:
+                        N = draw(X, rng)
+                    sils.append(silhouette_score(N, KMeans(k, n_init=10, random_state=b).fit_predict(N)))
+                nulls[tag] = (np.mean(sils), np.std(sils))
             boot = [adjusted_rand_score(lab, KMeans(k, n_init=10, random_state=b)
                                         .fit(X[rng.choice(len(X), len(X))]).predict(X)) for b in range(40)]
             rows.append({
                 "variant": name, "dims": X.shape[1], "k": k, "silhouette": sil,
-                "null_mean": np.mean(null), "silhouette_z_vs_null": (sil - np.mean(null)) / np.std(null),
+                "copula_null_mean": nulls["copula"][0],
+                "silhouette_z_vs_null": (sil - nulls["copula"][0]) / nulls["copula"][1],
+                "silhouette_z_vs_gaussian": (sil - nulls["gaussian"][0]) / nulls["gaussian"][1],
                 "bootstrap_ari": np.mean(boot), "yoy_same_cluster": yoy(lab),
                 "ari_vs_model_k5": adjusted_rand_score(t["cluster_k5"], lab),
                 "min_cluster_size": int(np.bincount(lab).min()),

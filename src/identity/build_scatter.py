@@ -7,7 +7,7 @@ import pandas as pd
 
 sys.path.insert(0, "src/identity")
 from cluster_identity import K_PRIMARY, K_SECONDARY  # noqa: E402
-from themes import THEME_LABELS, THEME_POLES, THEMES  # noqa: E402
+from themes import THEME_FEATURES, THEME_LABELS, THEME_POLES, THEMES  # noqa: E402
 
 OUT = "output/identity"
 TEMPLATE = "src/templates/identity_scatter_template.html"
@@ -53,7 +53,7 @@ def main():
     chance = (t[f"cluster_k{K_PRIMARY}"].value_counts(normalize=True) ** 2).sum()
     stats = [
         ["team-seasons", str(len(t))],
-        ["features", f"{len(features)} in {len(THEMES)} themes"],
+        ["features", f"{len(THEME_FEATURES)} in {len(THEMES)} themes"],
         [f"silhouette k={K_PRIMARY}", f"{row.silhouette:.3f}"],
         ["random-data baseline", f"{row.null_silhouette_mean:.3f} ({row.silhouette_z_vs_null:.1f} SD above)"],
         ["same cluster next season", f"{same:.1%} (chance {chance:.1%})"],

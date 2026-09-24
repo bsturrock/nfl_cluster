@@ -16,10 +16,17 @@ Pipeline:
   4. Sweep k=2..10 for k-means, Ward, and diagonal GMM. For each: silhouette
      (in theme space and in the full z-scored feature space), Calinski-
      Harabasz, Davies-Bouldin, bootstrap stability (mean ARI of refits on
-     resamples vs the full-data fit), and a null-model silhouette: k-means
-     on Gaussian data with the same covariance and no cluster structure.
-     silhouette_z = (silhouette - null mean) / null sd is what k is chosen on,
-     since raw silhouette falls mechanically with dimensionality.
+     resamples vs the full-data fit), and two null-model silhouettes from
+     k-means on structureless data of the same shape:
+       - gaussian: multivariate normal with the same covariance
+       - copula (the one k is chosen on): same rank correlations AND each
+         theme's exact marginal distribution, via a Gaussian copula. The
+         themes are skewed with long tails (a few teams far out on tempo,
+         wide-zone, QB run), and tails alone make k-means find "clusters";
+         the Gaussian null has no tails, so it overstates the evidence
+         (k=5: z 5.6 vs Gaussian, 1.9 vs copula on the earlier feature set).
+     silhouette_z = (silhouette - null mean) / null sd, since raw silhouette
+     falls mechanically with dimensionality.
   5. Final model: k-means at the primary k, plus a secondary finer k.
 
 Outputs (output/identity/):
@@ -38,6 +45,7 @@ from sklearn.metrics import (
     silhouette_samples, silhouette_score,
 )
 from sklearn.mixture import GaussianMixture
+from scipy.stats import norm, rankdata
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -55,8 +63,10 @@ N_BOOT = 50
 N_NULL = 30
 SEED = 0
 
-# Labels were assigned by reading the profiles printed below. Cluster ids are
-# made deterministic by ordering clusters by size (0 = largest).
+# Label names come from reading the cluster profiles. Which k-means cluster gets
+# which name is decided from its theme centroid (assign_by_signature), not its
+# size, so a refit that reorders clusters can't silently mislabel them. Cluster
+# ids follow the order below (the scatter's colors depend on it).
 LABELS = {
     5: {
         0: "Shotgun spread, pass-first",
@@ -120,19 +130,54 @@ def bootstrap_stability(method, X, k, ref, rng):
     return float(np.mean(aris))
 
 
-def null_silhouette(X, k, rng):
-    cov = np.cov(X.T)
+def gaussian_null(X, rng):
+    return rng.multivariate_normal(np.zeros(X.shape[1]), np.cov(X.T), len(X))
+
+
+def copula_null(X, rng):
+    """Structureless data with X's rank correlations and exact marginals."""
+    normal_scores = norm.ppf((np.apply_along_axis(rankdata, 0, X) - 0.5) / len(X))
+    corr = np.corrcoef(normal_scores.T)
+    u = norm.cdf(rng.multivariate_normal(np.zeros(X.shape[1]), corr, len(X)))
+    return np.column_stack([np.quantile(X[:, j], u[:, j]) for j in range(X.shape[1])])
+
+
+def null_silhouette(X, k, rng, draw):
     sils = []
     for b in range(N_NULL):
-        N = rng.multivariate_normal(np.zeros(X.shape[1]), cov, len(X))
+        N = draw(X, rng)
         sils.append(silhouette_score(N, KMeans(k, n_init=10, random_state=b).fit_predict(N)))
     return float(np.mean(sils)), float(np.std(sils)), float(np.percentile(sils, 95))
 
 
-def relabel_by_size(labels):
-    order = pd.Series(labels).value_counts().index.tolist()
-    remap = {old: new for new, old in enumerate(order)}
-    return np.array([remap[l] for l in labels])
+def assign_by_signature(centroids, k):
+    """Map k-means cluster index -> label id, from the theme centroids.
+
+    Distinctive groups are picked first by the theme they are extreme on;
+    the remaining broad groups split on under center (and on pass-first at k=6).
+    """
+    c = pd.DataFrame(centroids, columns=list(THEMES))
+    left = list(c.index)
+
+    def take(col, largest=True):
+        pick = c.loc[left, col].idxmax() if largest else c.loc[left, col].idxmin()
+        left.remove(pick)
+        return pick
+
+    wide_zone = take("wide_zone_package")
+    qb_tempo = take("tempo")
+    power = take("qb_run_game")
+    under_center = take("under_center_vs_gun")
+    if k == 5:
+        spread = left.pop()
+        order = [spread, under_center, qb_tempo, wide_zone, power]
+    elif k == 6:
+        pass_first = take("pass_first")
+        balanced = left.pop()
+        order = [under_center, balanced, pass_first, qb_tempo, wide_zone, power]
+    else:
+        raise ValueError(f"no label signature defined for k={k}")
+    return {km_idx: label_id for label_id, km_idx in enumerate(order)}
 
 
 def main():
@@ -165,17 +210,18 @@ def main():
     rows = []
     null_cache = {}
     for k in K_RANGE:
-        null_cache[k] = null_silhouette(X, k, rng)
+        null_cache[k] = (null_silhouette(X, k, rng, copula_null), null_silhouette(X, k, rng, gaussian_null))
         for method in ["kmeans", "ward", "gmm"]:
             lab = fit_labels(method, X, k)
             sil = silhouette_score(X, lab)
-            nm, ns, n95 = null_cache[k]
+            (nm, ns, n95), (gm, gs, _) = null_cache[k]
             rows.append({
                 "k": k, "method": method,
                 "silhouette": sil,
                 "silhouette_full_space": silhouette_score(Z, lab),
                 "null_silhouette_mean": nm, "null_silhouette_p95": n95,
                 "silhouette_z_vs_null": (sil - nm) / ns,
+                "gaussian_null_mean": gm, "silhouette_z_vs_gaussian": (sil - gm) / gs,
                 "calinski_harabasz": calinski_harabasz_score(X, lab),
                 "davies_bouldin": davies_bouldin_score(X, lab),
                 "bootstrap_ari": bootstrap_stability(method, X, k, lab, rng),
@@ -188,7 +234,8 @@ def main():
     out = feats[["season", "team"]].copy()
     for k in (K_PRIMARY, K_SECONDARY):
         km = KMeans(k, n_init=50, random_state=SEED).fit(X)
-        lab = relabel_by_size(km.labels_)
+        remap = assign_by_signature(km.cluster_centers_, k)
+        lab = np.array([remap[l] for l in km.labels_])
         cents = np.array([X[lab == j].mean(0) for j in range(k)])
         d = ((X[:, None, :] - cents[None]) ** 2).sum(-1) ** 0.5
         second = np.argsort(d, axis=1)[:, 1]

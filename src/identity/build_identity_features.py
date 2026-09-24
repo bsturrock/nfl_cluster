@@ -21,19 +21,18 @@ Features, grouped by the part of the identity they describe:
     proe_early        pass rate over expected (qb_dropback - xpass) on 1st/2nd down
   Formation / personnel (share of all neutral plays)
     under_center      snaps under center (FTN qb_location)
-    pistol            snaps from pistol (FTN qb_location)
-    pers_11           1 back, 1 TE
-    multi_te          2+ TEs on the field
-    two_back          2+ backs (RB + FB) on the field
+    pistol_of_gun     pistol share of non-under-center snaps (pistol vs shotgun)
+    avg_te            average TEs on the field
+    avg_backs         average backs (RB + FB) on the field
     empty_backfield   0 players in the backfield (FTN)
     extra_ol          6+ offensive linemen
-    personnel_entropy Shannon entropy (bits) of the personnel-grouping mix
   Pre-snap / tempo
     motion            pre-snap motion (FTN)
     no_huddle         no-huddle (FTN)
   Run game
     outside_run       share of non-QB designed runs to end/tackle gaps
-    qb_design_run     designed QB runs (roster QB, not scrambles, not sneaks) / all plays
+    qb_run_share      designed QB runs / all designed runs (roster QB; scrambles
+                      and sneaks excluded from both)
     rpo               RPO / all plays (FTN)
   Pass game (share of dropbacks unless stated)
     play_action       play action (FTN)
@@ -42,7 +41,8 @@ Features, grouped by the part of the identity they describe:
     adot              mean air yards on targets
     deep_rate         targets with air yards >= 20 / targets
     middle_target     targets to the middle of the field / targets
-    time_to_throw     median time to throw (participation / NGS)
+    quick_throw       dropbacks with time to throw <= 2.5s / dropbacks with a
+                      charted time (participation / NGS)
     rb_target_share   targets to RBs/FBs
     te_target_share   targets to TEs
 
@@ -148,12 +148,6 @@ def load_plays():
     return plays
 
 
-def entropy_bits(counts):
-    p = counts / counts.sum()
-    p = p[p > 0]
-    return float(-(p * np.log2(p)).sum())
-
-
 def build(plays):
     key = ["season", "posteam"]
     g = plays.groupby(key)
@@ -167,15 +161,14 @@ def build(plays):
     form = plays[plays["qb_location"].str.strip().isin(["U", "S", "P"])]
     fg = form.groupby(key)["qb_location"]
     out["under_center"] = fg.apply(lambda s: (s.str.strip() == "U").mean())
-    out["pistol"] = fg.apply(lambda s: (s.str.strip() == "P").mean())
+    gun = form[form["qb_location"].str.strip().isin(["S", "P"])]
+    out["pistol_of_gun"] = gun.groupby(key)["qb_location"].apply(lambda s: (s.str.strip() == "P").mean())
 
     pers = plays[plays["pers_code"].notna()]
     pg = pers.groupby(key)
-    out["pers_11"] = pg["pers_code"].apply(lambda s: (s == "11").mean())
-    out["multi_te"] = pg["n_te"].apply(lambda s: (s >= 2).mean())
-    out["two_back"] = pg["n_backs"].apply(lambda s: (s >= 2).mean())
+    out["avg_te"] = pg["n_te"].mean()
+    out["avg_backs"] = pg["n_backs"].mean()
     out["extra_ol"] = pg["n_ol"].apply(lambda s: (s >= 6).mean())
-    out["personnel_entropy"] = pg["pers_code"].apply(lambda s: entropy_bits(s.value_counts()))
 
     ftn = plays[plays["is_motion"].notna()]
     tg = ftn.groupby(key)
@@ -183,10 +176,8 @@ def build(plays):
     out["motion"] = tg["is_motion"].mean()
     out["no_huddle"] = tg["is_no_huddle"].mean()
     out["rpo"] = tg["is_rpo"].mean()
-    qb_design = (
-        (ftn["rush_attempt"] == 1) & ftn["is_qb"] & (ftn["qb_scramble"] != 1) & (ftn["is_qb_sneak"] != 1)
-    )
-    out["qb_design_run"] = qb_design.groupby([ftn["season"], ftn["posteam"]]).mean()
+    designed = ftn[(ftn["rush_attempt"] == 1) & (ftn["qb_scramble"] != 1) & (ftn["is_qb_sneak"] != 1)]
+    out["qb_run_share"] = designed.groupby(key)["is_qb"].mean()
 
     rb_runs = plays[(plays["rush_attempt"] == 1) & ~plays["is_qb"] & plays["run_location"].notna()]
     outside = rb_runs["run_gap"].isin(["end", "tackle"]) & (rb_runs["run_location"] != "middle")
@@ -198,7 +189,8 @@ def build(plays):
     out["play_action"] = dg["is_play_action"].mean()
     out["screen"] = dg["is_screen_pass"].mean()
     out["qb_out_of_pocket"] = dg["is_qb_out_of_pocket"].mean()
-    out["time_to_throw"] = plays[plays["qb_dropback"] == 1].groupby(key)["time_to_throw"].median()
+    ttt = plays[(plays["qb_dropback"] == 1) & plays["time_to_throw"].notna()]
+    out["quick_throw"] = (ttt["time_to_throw"] <= 2.5).groupby([ttt["season"], ttt["posteam"]]).mean()
 
     tgt = plays[
         ((plays["complete_pass"] == 1) | (plays["incomplete_pass"] == 1)) & plays["air_yards"].notna()
@@ -216,10 +208,10 @@ def build(plays):
 
 
 FEATURES = [
-    "proe_early", "under_center", "pistol", "pers_11", "multi_te", "two_back",
-    "empty_backfield", "extra_ol", "personnel_entropy", "motion", "no_huddle",
-    "outside_run", "qb_design_run", "rpo", "play_action", "screen",
-    "qb_out_of_pocket", "adot", "deep_rate", "middle_target", "time_to_throw",
+    "proe_early", "under_center", "pistol_of_gun", "avg_te", "avg_backs",
+    "empty_backfield", "extra_ol", "motion", "no_huddle",
+    "outside_run", "qb_run_share", "rpo", "play_action", "screen",
+    "qb_out_of_pocket", "adot", "deep_rate", "middle_target", "quick_throw",
     "rb_target_share", "te_target_share",
 ]
 

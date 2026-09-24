@@ -1,17 +1,17 @@
 theme,theme_label,feature,sign,r_with_theme,item_rest_r
 under_center_vs_gun,Under center vs gun/RPO,under_center,1,0.888,0.579
 under_center_vs_gun,Under center vs gun/RPO,rpo,-1,0.888,0.579
-dropback_play_action,Dropback play action,play_action,1,0.843,0.422
-dropback_play_action,Dropback play action,time_to_throw,1,0.843,0.422
-wide_zone_package,Wide-zone package,two_back,1,0.73,0.525
-wide_zone_package,Wide-zone package,motion,1,0.656,0.416
-wide_zone_package,Wide-zone package,outside_run,1,0.715,0.505
-wide_zone_package,Wide-zone package,pistol,1,0.661,0.426
-wide_zone_package,Wide-zone package,rb_target_share,1,0.479,0.198
-te_heavy,TE-heavy,multi_te,1,0.895,0.602
-te_heavy,TE-heavy,te_target_share,1,0.895,0.602
-qb_run_game,QB run game,qb_design_run,1,0.857,0.471
-qb_run_game,QB run game,qb_out_of_pocket,1,0.857,0.471
+dropback_play_action,Dropback play action,play_action,1,0.85,0.448
+dropback_play_action,Dropback play action,quick_throw,-1,0.85,0.448
+wide_zone_package,Wide-zone package,avg_backs,1,0.735,0.535
+wide_zone_package,Wide-zone package,motion,1,0.66,0.424
+wide_zone_package,Wide-zone package,outside_run,1,0.716,0.509
+wide_zone_package,Wide-zone package,pistol_of_gun,1,0.684,0.46
+wide_zone_package,Wide-zone package,rb_target_share,1,0.481,0.204
+te_heavy,TE-heavy,avg_te,1,0.895,0.603
+te_heavy,TE-heavy,te_target_share,1,0.895,0.603
+qb_run_game,QB run game,qb_run_share,1,0.857,0.47
+qb_run_game,QB run game,qb_out_of_pocket,1,0.857,0.47
 tempo,Tempo,no_huddle,1,1.0,
 pass_first,Pass-first,proe_early,1,0.79,0.248
 pass_first,Pass-first,empty_backfield,1,0.79,0.248

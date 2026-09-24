@@ -15,10 +15,10 @@ import pandas as pd
 
 THEMES = {
     "under_center_vs_gun": {"under_center": 1, "rpo": -1},
-    "dropback_play_action": {"play_action": 1, "time_to_throw": 1},
-    "wide_zone_package": {"two_back": 1, "motion": 1, "outside_run": 1, "pistol": 1, "rb_target_share": 1},
-    "te_heavy": {"multi_te": 1, "te_target_share": 1},
-    "qb_run_game": {"qb_design_run": 1, "qb_out_of_pocket": 1},
+    "dropback_play_action": {"play_action": 1, "quick_throw": -1},
+    "wide_zone_package": {"avg_backs": 1, "motion": 1, "outside_run": 1, "pistol_of_gun": 1, "rb_target_share": 1},
+    "te_heavy": {"avg_te": 1, "te_target_share": 1},
+    "qb_run_game": {"qb_run_share": 1, "qb_out_of_pocket": 1},
     "tempo": {"no_huddle": 1},
     "pass_first": {"proe_early": 1, "empty_backfield": 1},
 }

@@ -183,12 +183,12 @@ details summary { cursor: pointer; font-family: var(--display); font-size: 20px;
 const D = __DATA_JSON__;
 const F = D.features;
 const FL = {
-  proe_early: ["Early-down pass rate over expected", "pp"], under_center: ["Under center", "pct"], pistol: ["Pistol", "pct"],
-  pers_11: ["11 personnel", "pct"], multi_te: ["2+ TE on field", "pct"], two_back: ["2+ backs on field", "pct"],
+  proe_early: ["Early-down pass rate over expected", "pp"], under_center: ["Under center", "pct"],
+  pistol_of_gun: ["Pistol (share of gun snaps)", "pct"], avg_te: ["Avg TEs on field", "num"], avg_backs: ["Avg backs on field", "num"],
   empty_backfield: ["Empty backfield", "pct"], extra_ol: ["6+ offensive linemen", "pct"], motion: ["Pre-snap motion", "pct"],
-  no_huddle: ["No-huddle", "pct"], outside_run: ["Outside run share", "pct"], qb_design_run: ["Designed QB runs", "pct"],
+  no_huddle: ["No-huddle", "pct"], outside_run: ["Outside run share", "pct"], qb_run_share: ["QB share of designed runs", "pct"],
   rpo: ["RPO", "pct"], play_action: ["Play action (of dropbacks)", "pct"], screen: ["Screens (of dropbacks)", "pct"],
-  qb_out_of_pocket: ["QB out of pocket", "pct"], time_to_throw: ["Median time to throw", "sec"],
+  qb_out_of_pocket: ["QB out of pocket", "pct"], quick_throw: ["Quick throws (≤2.5s)", "pct"],
   rb_target_share: ["RB target share", "pct"], te_target_share: ["TE target share", "pct"],
 };
 const TH = D.themes;
@@ -209,6 +209,7 @@ const fmt = (key, v) => {
   const u = FL[key][1];
   if (u === "pct") return (v * 100).toFixed(1) + "%";
   if (u === "pp") return (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + " pp";
+  if (u === "num") return v.toFixed(2);
   return v.toFixed(2) + "s";
 };
 const val = (p, key) => key.startsWith("th") ? p.th[+key.slice(2)] : p.f[F.indexOf(key)];
@@ -293,7 +294,7 @@ function draw() {
   const sy = v => H - m.b - (v - y0) / (y1 - y0) * (H - m.t - m.b);
   let s = "";
   const xt = niceTicks(x0, x1, narrow ? 5 : 8), yt = niceTicks(y0, y1, 6);
-  const tf = (key, v) => key.startsWith("th") ? String(+v.toFixed(2)) : (FL[key][1] === "sec" ? v.toFixed(2) : FL[key][1] === "pp" ? (v*100).toFixed(0) : (v*100).toFixed(0) + "%");
+  const tf = (key, v) => key.startsWith("th") ? String(+v.toFixed(2)) : ((FL[key][1] === "sec" || FL[key][1] === "num") ? v.toFixed(2) : FL[key][1] === "pp" ? (v*100).toFixed(0) : (v*100).toFixed(0) + "%");
   xt.forEach(v => { s += `<line x1="${sx(v)}" x2="${sx(v)}" y1="${m.t}" y2="${H-m.b}" stroke="var(--grid)" stroke-width="1"/><text x="${sx(v)}" y="${H-m.b+16}" text-anchor="middle">${tf(xKey, v)}</text>`; });
   yt.forEach(v => { s += `<line x1="${m.l}" x2="${W-m.r}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--grid)" stroke-width="1"/><text x="${m.l-6}" y="${sy(v)+4}" text-anchor="end">${tf(yKey, v)}</text>`; });
   if (xKey.startsWith("th") && x0 < 0 && x1 > 0) s += `<line x1="${sx(0)}" x2="${sx(0)}" y1="${m.t}" y2="${H-m.b}" stroke="var(--axis)" stroke-width="1"/>`;

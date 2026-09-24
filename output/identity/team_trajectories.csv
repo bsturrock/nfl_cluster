@@ -1,10 +1,10 @@
 team,2022,2023,2024,2025
 ARI,Shotgun QB-run / RPO,Under-center play-action,Under-center play-action,Under-center play-action
 ATL,Heavy power run + QB run,Heavy power run + QB run,"Shanahan wide-zone, two-back motion","Shanahan wide-zone, two-back motion"
-BAL,Heavy power run + QB run,Shotgun QB-run / RPO,Heavy power run + QB run,Heavy power run + QB run
+BAL,Heavy power run + QB run,Heavy power run + QB run,Heavy power run + QB run,Heavy power run + QB run
 BUF,"Shotgun spread, pass-first",Shotgun QB-run / RPO,"Shotgun spread, pass-first",Under-center play-action
 CAR,Under-center play-action,"Shotgun spread, pass-first","Shotgun spread, pass-first","Shotgun spread, pass-first"
-CHI,Heavy power run + QB run,Heavy power run + QB run,Shotgun QB-run / RPO,Under-center play-action
+CHI,Heavy power run + QB run,Heavy power run + QB run,"Shotgun spread, pass-first",Under-center play-action
 CIN,"Shotgun spread, pass-first","Shotgun spread, pass-first","Shotgun spread, pass-first","Shotgun spread, pass-first"
 CLE,Under-center play-action,Under-center play-action,"Shotgun spread, pass-first",Under-center play-action
 DAL,Under-center play-action,"Shotgun spread, pass-first","Shotgun spread, pass-first",Under-center play-action
@@ -12,7 +12,7 @@ DEN,Under-center play-action,Under-center play-action,"Shotgun spread, pass-firs
 DET,Under-center play-action,Under-center play-action,Under-center play-action,Under-center play-action
 GB,"Shotgun spread, pass-first",Under-center play-action,"Shotgun spread, pass-first","Shotgun spread, pass-first"
 HOU,Under-center play-action,Under-center play-action,Under-center play-action,"Shotgun spread, pass-first"
-IND,"Shotgun spread, pass-first",Shotgun QB-run / RPO,Shotgun QB-run / RPO,"Shotgun spread, pass-first"
+IND,"Shotgun spread, pass-first",Shotgun QB-run / RPO,"Shotgun spread, pass-first","Shotgun spread, pass-first"
 JAX,"Shotgun spread, pass-first","Shotgun spread, pass-first","Shotgun spread, pass-first","Shotgun spread, pass-first"
 KC,"Shotgun spread, pass-first","Shotgun spread, pass-first","Shotgun spread, pass-first","Shotgun spread, pass-first"
 LA,Under-center play-action,"Shotgun spread, pass-first",Under-center play-action,Under-center play-action
@@ -22,12 +22,12 @@ MIA,"Shanahan wide-zone, two-back motion","Shanahan wide-zone, two-back motion",
 MIN,Under-center play-action,Under-center play-action,Under-center play-action,Under-center play-action
 NE,"Shotgun spread, pass-first","Shotgun spread, pass-first","Shotgun spread, pass-first",Under-center play-action
 NO,Under-center play-action,"Shotgun spread, pass-first",Under-center play-action,Shotgun QB-run / RPO
-NYG,Shotgun QB-run / RPO,Shotgun QB-run / RPO,"Shotgun spread, pass-first",Shotgun QB-run / RPO
-NYJ,"Shotgun spread, pass-first",Under-center play-action,"Shotgun spread, pass-first",Shotgun QB-run / RPO
+NYG,Heavy power run + QB run,"Shotgun spread, pass-first","Shotgun spread, pass-first",Shotgun QB-run / RPO
+NYJ,"Shotgun spread, pass-first",Under-center play-action,"Shotgun spread, pass-first",Heavy power run + QB run
 PHI,Shotgun QB-run / RPO,Shotgun QB-run / RPO,Shotgun QB-run / RPO,Shotgun QB-run / RPO
-PIT,"Shotgun spread, pass-first","Shotgun spread, pass-first",Under-center play-action,"Shotgun spread, pass-first"
+PIT,"Shotgun spread, pass-first","Shotgun spread, pass-first",Heavy power run + QB run,"Shotgun spread, pass-first"
 SEA,Under-center play-action,Under-center play-action,"Shotgun spread, pass-first",Under-center play-action
 SF,"Shanahan wide-zone, two-back motion","Shanahan wide-zone, two-back motion","Shanahan wide-zone, two-back motion","Shanahan wide-zone, two-back motion"
-TB,"Shotgun spread, pass-first","Shotgun spread, pass-first","Shotgun spread, pass-first","Shotgun spread, pass-first"
+TB,"Shotgun spread, pass-first","Shotgun spread, pass-first","Shanahan wide-zone, two-back motion","Shotgun spread, pass-first"
 TEN,Under-center play-action,Under-center play-action,Under-center play-action,"Shotgun spread, pass-first"
 WAS,"Shotgun spread, pass-first","Shotgun spread, pass-first",Shotgun QB-run / RPO,Shotgun QB-run / RPO

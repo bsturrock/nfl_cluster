@@ -1,0 +1,464 @@
+<title>Offensive Identity Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --page: #f5f6f2;
+  --surface: #fcfcfb;
+  --ink: #111310;
+  --ink-2: #4e514a;
+  --muted: #858a80;
+  --grid: #e3e5de;
+  --axis: #c3c6bb;
+  --ring: rgba(17,19,16,0.10);
+  --chip: #eceee7;
+  --c0: #2a78d6; /* Shotgun spread */
+  --c1: #eda100; /* Under-center PA */
+  --c2: #e34948; /* Shotgun QB-run / RPO */
+  --c3: #1baf7a; /* Shanahan wide-zone */
+  --c4: #4a3aa7; /* Heavy power */
+  --neg: #2a78d6;
+  --pos: #d0473f;
+  --mid: #f0efec;
+  --display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0f110e;
+    --surface: #181a17;
+    --ink: #f4f5f1;
+    --ink-2: #c3c6bb;
+    --muted: #8d9186;
+    --grid: #2a2d28;
+    --axis: #3b3f38;
+    --ring: rgba(255,255,255,0.10);
+    --chip: #242722;
+    --c0: #2a78d6; --c1: #c98500; --c2: #e66767; --c3: #199e70; --c4: #9085e9;
+    --neg: #3987e5; --pos: #e66767; --mid: #383835;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0f110e;
+  --surface: #181a17;
+  --ink: #f4f5f1;
+  --ink-2: #c3c6bb;
+  --muted: #8d9186;
+  --grid: #2a2d28;
+  --axis: #3b3f38;
+  --ring: rgba(255,255,255,0.10);
+  --chip: #242722;
+  --c0: #2a78d6; --c1: #c98500; --c2: #e66767; --c3: #199e70; --c4: #9085e9;
+  --neg: #3987e5; --pos: #e66767; --mid: #383835;
+}
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 56px; display: grid; gap: 22px; }
+header { display: grid; gap: 10px; }
+.eyebrow { font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--display); font-weight: 700; font-size: clamp(30px, 4.4vw, 44px); line-height: 1.02; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+.lede { color: var(--ink-2); max-width: 72ch; margin: 0; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px 22px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.stats b { color: var(--ink); font-weight: 500; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; }
+.ctl { display: grid; gap: 4px; }
+.ctl label, .ctl .lbl { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+select, .seg button, .btn { font: 500 14px/1 var(--body); color: var(--ink); background: var(--surface); border: 1px solid var(--axis); border-radius: 6px; padding: 8px 10px; min-height: 36px; }
+select:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--c0); outline-offset: 2px; }
+.seg { display: inline-flex; }
+.seg button { border-radius: 0; cursor: pointer; }
+.seg button:first-child { border-radius: 6px 0 0 6px; }
+.seg button:last-child { border-radius: 0 6px 6px 0; border-left: none; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.btn { cursor: pointer; }
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; }
+@media (max-width: 900px) { .main { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; }
+.chart-card { padding: 14px 14px 8px; display: grid; gap: 8px; min-width: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 8px; }
+.legend button { display: inline-flex; align-items: center; gap: 7px; font: 500 13.5px/1.2 var(--body); color: var(--ink); background: transparent; border: 1px solid transparent; border-radius: 999px; padding: 5px 10px 5px 7px; cursor: pointer; }
+.legend button:hover { background: var(--chip); }
+.legend button[aria-pressed="false"] { opacity: .38; }
+.legend .n { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+#chart { width: 100%; display: block; touch-action: none; }
+#chart text { font-family: var(--mono); fill: var(--muted); font-size: 11px; }
+#chart .pole { font-family: var(--body); fill: var(--ink-2); font-size: 12px; }
+#chart .axis-title { font-family: var(--display); fill: var(--ink); font-size: 13.5px; font-weight: 600; }
+#chart .cent { font-family: var(--display); font-weight: 700; font-size: 13.5px; fill: var(--ink); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+#chart .yr { font-family: var(--mono); font-size: 11px; fill: var(--ink); font-weight: 500; paint-order: stroke; stroke: var(--surface); stroke-width: 3.5px; }
+.note { font-size: 13px; color: var(--muted); margin: 0; padding: 0 2px 4px; }
+.panel { padding: 16px; display: grid; gap: 12px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+@media (max-width: 900px) { .panel { position: static; } }
+.panel h2 { font-family: var(--display); font-size: 24px; font-weight: 700; margin: 0; line-height: 1.05; }
+.chipc { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; font-size: 14px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 13.5px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.zlist { display: grid; gap: 6px; }
+.zbar.nomid::after { display: none; }
+.zrow { display: grid; grid-template-columns: 1fr 88px 48px; gap: 8px; align-items: center; font-size: 13px; }
+.zbar { position: relative; height: 10px; background: var(--chip); border-radius: 2px; }
+.zbar::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--axis); }
+.zbar i { position: absolute; top: 1px; bottom: 1px; border-radius: 2px; }
+.zrow .v { font-family: var(--mono); font-size: 12px; text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.sub { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.hint { font-size: 13px; color: var(--muted); margin: 0; }
+#tip { position: fixed; pointer-events: none; z-index: 10; background: var(--surface); border: 1px solid var(--ring); border-radius: 8px; padding: 8px 10px; box-shadow: 0 6px 20px rgba(0,0,0,.14); font-size: 13px; min-width: 170px; }
+#tip .t { font-family: var(--display); font-weight: 700; font-size: 17px; }
+#tip .r { display: flex; align-items: center; gap: 6px; color: var(--ink-2); }
+#tip .m { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+section.card { padding: 16px; display: grid; gap: 10px; }
+section h3 { font-family: var(--display); font-size: 20px; margin: 0; font-weight: 700; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+th, td { padding: 5px 8px; text-align: right; white-space: nowrap; }
+th { font-family: var(--mono); font-weight: 500; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+td:first-child, th:first-child { text-align: left; }
+.heat td { font-family: var(--mono); min-width: 58px; }
+.heat thead th { white-space: normal; vertical-align: bottom; min-width: 96px; text-transform: none; letter-spacing: 0; font-family: var(--body); font-size: 12.5px; color: var(--ink); font-weight: 600; }
+.heat tbody th { font-family: var(--body); font-size: 13px; color: var(--ink-2); text-transform: none; letter-spacing: 0; font-weight: 500; text-align: left; }
+.rows td { border-top: 1px solid var(--grid); font-family: var(--mono); }
+.rows tbody tr:hover { background: var(--chip); }
+details summary { cursor: pointer; font-family: var(--display); font-size: 20px; font-weight: 700; }
+@media (prefers-reduced-motion: no-preference) { .pt { transition: opacity .15s; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">nflverse · neutral script · 2022–2025 regular season</div>
+    <h1>Offensive Identity Map</h1>
+    <p class="lede">Each mark is one team-season, placed by what the offense chose to do: formation, personnel, motion, tempo, run design and pass design. Nothing here measures how well they did it. Color and shape show the k-means cluster.</p>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="controls">
+    <div class="ctl"><span class="lbl">Clusters</span>
+      <div class="seg" role="group" aria-label="Number of clusters">
+        <button id="k5" aria-pressed="true">k = 5</button><button id="k7" aria-pressed="false">k = 7</button>
+      </div>
+    </div>
+    <div class="ctl"><label for="xsel">X axis</label><select id="xsel"></select></div>
+    <div class="ctl"><label for="ysel">Y axis</label><select id="ysel"></select></div>
+    <div class="ctl"><label for="tsel">Trace a team</label><select id="tsel"><option value="">None</option></select></div>
+    <button class="btn" id="reset">Reset view</button>
+  </div>
+
+  <div class="main">
+    <div class="card chart-card">
+      <div class="legend" id="legend"></div>
+      <svg id="chart" role="img" aria-label="Scatter plot of team-seasons by offensive identity"></svg>
+      <p class="note" id="note"></p>
+    </div>
+    <aside class="card panel" id="panel" aria-live="polite"></aside>
+  </div>
+
+  <section class="card">
+    <h3>What defines each cluster</h3>
+    <p class="hint">Mean within-season z-score per feature. 0 is league average for that season, +1 is one standard deviation above.</p>
+    <div class="scroll"><table class="heat" id="heat"></table></div>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary>All 128 team-seasons</summary>
+      <div class="scroll" style="margin-top:10px"><table class="rows" id="rows"></table></div>
+    </details>
+  </section>
+</div>
+<div id="tip" hidden></div>
+
+<script>
+const D = __DATA_JSON__;
+const F = D.features;
+const FL = {
+  proe_early: ["Early-down pass rate over expected", "pp"], under_center: ["Under center", "pct"], pistol: ["Pistol", "pct"],
+  pers_11: ["11 personnel", "pct"], multi_te: ["2+ TE on field", "pct"], two_back: ["2+ backs on field", "pct"],
+  empty_backfield: ["Empty backfield", "pct"], extra_ol: ["6+ offensive linemen", "pct"], motion: ["Pre-snap motion", "pct"],
+  no_huddle: ["No-huddle", "pct"], outside_run: ["Outside run share", "pct"], qb_design_run: ["Designed QB runs", "pct"],
+  rpo: ["RPO", "pct"], play_action: ["Play action (of dropbacks)", "pct"], screen: ["Screens (of dropbacks)", "pct"],
+  qb_out_of_pocket: ["QB out of pocket", "pct"], time_to_throw: ["Median time to throw", "sec"],
+  rb_target_share: ["RB target share", "pct"], te_target_share: ["TE target share", "pct"],
+};
+const PC_POLES = [
+  ["Two-back, outside run, play action, motion", "11 personnel, RPO, pass-first"],
+  ["Under center", "QB runs, pistol, no-huddle"],
+  ["Motion, two-back", "Time to throw, TE targets, under center"],
+  ["11 personnel, time to throw", "Multi-TE, TE and RB targets"],
+  ["Screens, RB targets", "Pass-first, empty, TE targets"],
+];
+// k=7 clusters map to their k=5 parent family (color); split families get a hollow variant of the shape
+const K7_PARENT = [0, 1, 1, 0, 2, 3, 4];
+const K7_HOLLOW = [false, false, true, true, false, false, false];
+const SHAPES = ["circle", "square", "triangle", "diamond", "plus"];
+const SHORT = {
+  5: ["Spread", "Under-center PA", "QB-run / RPO", "Wide-zone", "Power + QB run"],
+  7: ["Spread, balanced", "Multi-TE PA", "11p + motion", "Pass-first spread", "QB-run / RPO", "Wide-zone", "Power + QB run"],
+};
+
+let K = 5, xKey = "pc0", yKey = "pc1", team = "", pinned = null, hidden = new Set();
+
+const fmt = (key, v) => {
+  if (key.startsWith("pc")) return v.toFixed(2);
+  const u = FL[key][1];
+  if (u === "pct") return (v * 100).toFixed(1) + "%";
+  if (u === "pp") return (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + " pp";
+  return v.toFixed(2) + "s";
+};
+const val = (p, key) => key.startsWith("pc") ? p.pc[+key.slice(2)] : p.f[F.indexOf(key)];
+const cl = p => K === 5 ? p.c5 : p.c7;
+const fam = c => K === 5 ? c : K7_PARENT[c];
+const hollow = c => K === 7 && K7_HOLLOW[c];
+const shapeOf = c => SHAPES[fam(c)];
+const colorVar = c => `var(--c${fam(c)})`;
+const labels = () => D.profiles[K].labels;
+const short = s => "'" + String(s).slice(2);
+
+function shapePath(shape, r) {
+  switch (shape) {
+    case "circle": return `M${-r},0a${r},${r} 0 1,0 ${2*r},0a${r},${r} 0 1,0 ${-2*r},0Z`;
+    case "square": { const s = r * 0.88; return `M${-s},${-s}H${s}V${s}H${-s}Z`; }
+    case "triangle": { const h = r * 1.15; return `M0,${-h}L${h},${h*0.8}H${-h}Z`; }
+    case "diamond": { const d = r * 1.22; return `M0,${-d}L${d},0L0,${d}L${-d},0Z`; }
+    case "plus": { const a = r * 1.1, b = r * 0.42; return `M${-b},${-a}H${b}V${-b}H${a}V${b}H${b}V${a}H${-b}V${b}H${-a}V${-b}H${-b}Z`; }
+  }
+}
+function swatch(c, size = 14) {
+  const r = size * 0.36;
+  const col = colorVar(c);
+  const h = hollow(c);
+  return `<svg width="${size}" height="${size}" viewBox="${-size/2} ${-size/2} ${size} ${size}" aria-hidden="true"><path d="${shapePath(shapeOf(c), r)}" fill="${h ? "var(--surface)" : col}" stroke="${col}" stroke-width="${h ? 2 : 0}"/></svg>`;
+}
+const esc = s => String(s).replace(/[&<>"]/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+
+// ---------- controls ----------
+function fillAxisSelect(sel, def) {
+  const g1 = document.createElement("optgroup"); g1.label = "Principal components";
+  D.ev.forEach((e, i) => { const o = new Option(`PC${i+1} (${(e*100).toFixed(1)}% of variance)`, "pc" + i); g1.appendChild(o); });
+  const g2 = document.createElement("optgroup"); g2.label = "Raw features";
+  F.forEach(f => g2.appendChild(new Option(FL[f][0], f)));
+  sel.append(g1, g2); sel.value = def;
+}
+fillAxisSelect(xsel, xKey); fillAxisSelect(ysel, yKey);
+[...new Set(D.points.map(p => p.t))].sort().forEach(t => tsel.appendChild(new Option(t, t)));
+xsel.onchange = () => { xKey = xsel.value; draw(); };
+ysel.onchange = () => { yKey = ysel.value; draw(); };
+tsel.onchange = () => { team = tsel.value; pinned = team ? D.points.filter(p => p.t === team).sort((a,b)=>b.s-a.s)[0] : null; draw(); showPanel(pinned); };
+k5.onclick = () => setK(5); k7.onclick = () => setK(7);
+reset.onclick = () => { xKey = "pc0"; yKey = "pc1"; xsel.value = xKey; ysel.value = yKey; team = ""; tsel.value = ""; pinned = null; hidden.clear(); setK(5); };
+function setK(k) { K = k; k5.setAttribute("aria-pressed", k === 5); k7.setAttribute("aria-pressed", k === 7); hidden.clear(); buildLegend(); buildHeat(); draw(); showPanel(pinned); }
+
+function buildStats() {
+  stats.innerHTML = [
+    ["team-seasons", "128"], ["features", "19"], ["PCs kept", "5 (60.1% var.)"],
+    ["silhouette k=5", "0.214"], ["random-data baseline", "0.167 ± 0.010"], ["same cluster next season", "61.5% (chance 30.4%)"],
+  ].map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join("");
+}
+function buildLegend() {
+  const P = D.profiles[K];
+  legend.innerHTML = "";
+  P.labels.forEach((l, c) => {
+    const b = document.createElement("button");
+    b.setAttribute("aria-pressed", !hidden.has(c));
+    b.innerHTML = swatch(c) + `<span></span><span class="n">${P.n[c]}</span>`;
+    b.children[1].textContent = l;
+    b.title = "Show or hide this cluster";
+    b.onclick = () => { hidden.has(c) ? hidden.delete(c) : hidden.add(c); buildLegend(); draw(); };
+    legend.appendChild(b);
+  });
+}
+
+// ---------- chart ----------
+let screenPts = [];
+function niceTicks(lo, hi, n) {
+  const span = hi - lo, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => span / s <= n) || mag * 10;
+  const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(10));
+  return out;
+}
+function draw() {
+  const W = chart.clientWidth || 800;
+  const narrow = W < 560;
+  const H = Math.round(Math.min(640, Math.max(380, W * 0.68)));
+  const m = { l: narrow ? 40 : 52, r: 14, t: 26, b: narrow ? 58 : 62 };
+  chart.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  chart.setAttribute("height", H);
+  const xs = D.points.map(p => val(p, xKey)), ys = D.points.map(p => val(p, yKey));
+  const pad = (a) => { const lo = Math.min(...a), hi = Math.max(...a), d = (hi - lo) * 0.06 || 1; return [lo - d, hi + d]; };
+  const [x0, x1] = pad(xs), [y0, y1] = pad(ys);
+  const sx = v => m.l + (v - x0) / (x1 - x0) * (W - m.l - m.r);
+  const sy = v => H - m.b - (v - y0) / (y1 - y0) * (H - m.t - m.b);
+  let s = "";
+  const xt = niceTicks(x0, x1, narrow ? 5 : 8), yt = niceTicks(y0, y1, 6);
+  const tf = (key, v) => key.startsWith("pc") ? String(+v.toFixed(2)) : (FL[key][1] === "sec" ? v.toFixed(2) : FL[key][1] === "pp" ? (v*100).toFixed(0) : (v*100).toFixed(0) + "%");
+  xt.forEach(v => { s += `<line x1="${sx(v)}" x2="${sx(v)}" y1="${m.t}" y2="${H-m.b}" stroke="var(--grid)" stroke-width="1"/><text x="${sx(v)}" y="${H-m.b+16}" text-anchor="middle">${tf(xKey, v)}</text>`; });
+  yt.forEach(v => { s += `<line x1="${m.l}" x2="${W-m.r}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--grid)" stroke-width="1"/><text x="${m.l-6}" y="${sy(v)+4}" text-anchor="end">${tf(yKey, v)}</text>`; });
+  if (xKey.startsWith("pc") && x0 < 0 && x1 > 0) s += `<line x1="${sx(0)}" x2="${sx(0)}" y1="${m.t}" y2="${H-m.b}" stroke="var(--axis)" stroke-width="1"/>`;
+  if (yKey.startsWith("pc") && y0 < 0 && y1 > 0) s += `<line x1="${m.l}" x2="${W-m.r}" y1="${sy(0)}" y2="${sy(0)}" stroke="var(--axis)" stroke-width="1"/>`;
+
+  // axis titles / poles
+  if (xKey.startsWith("pc")) {
+    const i = +xKey.slice(2), [lo, hi] = PC_POLES[i];
+    s += `<text class="pole" x="${m.l}" y="${H-m.b+36}" text-anchor="start">← ${esc(lo)}</text>`;
+    s += `<text class="pole" x="${W-m.r}" y="${H-m.b+36}" text-anchor="end">${esc(hi)} →</text>`;
+    s += `<text class="axis-title" x="${(m.l+W-m.r)/2}" y="${H-6}" text-anchor="middle">PC${i+1} · ${(D.ev[i]*100).toFixed(1)}% of variance</text>`;
+  } else {
+    s += `<text class="axis-title" x="${(m.l+W-m.r)/2}" y="${H-m.b+42}" text-anchor="middle">${esc(FL[xKey][0])}</text>`;
+  }
+  const ylab = yKey.startsWith("pc") ? `PC${+yKey.slice(2)+1} · ${(D.ev[+yKey.slice(2)]*100).toFixed(1)}%` : FL[yKey][0];
+  s += `<text class="axis-title" x="${m.l}" y="${m.t-10}" text-anchor="start">↑ ${esc(ylab)}${yKey.startsWith("pc") ? ` <tspan class="pole" dx="6">up: ${esc(PC_POLES[+yKey.slice(2)][1])} · down: ${esc(PC_POLES[+yKey.slice(2)][0])}</tspan>` : ""}</text>`;
+
+  // points
+  const r = narrow ? 5 : 6;
+  screenPts = [];
+  const order = [...D.points].sort((a, b) => (team && a.t === team) - (team && b.t === team));
+  order.forEach(p => {
+    const c = cl(p), X = sx(val(p, xKey)), Y = sy(val(p, yKey));
+    const off = hidden.has(c), dim = off || (team && p.t !== team);
+    const col = colorVar(c), h = hollow(c);
+    const op = off ? 0.06 : dim ? 0.18 : 0.92;
+    const isPin = pinned && pinned === p;
+    s += `<path class="pt" transform="translate(${X.toFixed(1)},${Y.toFixed(1)})" d="${shapePath(shapeOf(c), isPin ? r * 1.5 : r)}" fill="${h ? "var(--surface)" : col}" stroke="${h ? col : "var(--surface)"}" stroke-width="${h ? 2 : 1.5}" opacity="${op}"/>`;
+    if (isPin) s += `<circle cx="${X}" cy="${Y}" r="${r*2.4}" fill="none" stroke="var(--ink)" stroke-width="1.5"/>`;
+    if (!off) screenPts.push({ p, X, Y });
+  });
+
+  // team trace
+  if (team) {
+    const tp = D.points.filter(p => p.t === team).sort((a, b) => a.s - b.s);
+    const pts = tp.map(p => [sx(val(p, xKey)), sy(val(p, yKey))]);
+    s += `<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10Z" fill="var(--ink)"/></marker></defs>`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [ax, ay] = pts[i], [bx, by] = pts[i+1], dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1, k = Math.min(r * 2, L / 3);
+      s += `<line x1="${ax + dx/L*k}" y1="${ay + dy/L*k}" x2="${bx - dx/L*k}" y2="${by - dy/L*k}" stroke="var(--ink)" stroke-width="1.5" marker-end="url(#arr)"/>`;
+    }
+    tp.forEach((p, i) => { const [X, Y] = pts[i]; const c = cl(p);
+      s += `<path transform="translate(${X},${Y})" d="${shapePath(shapeOf(c), r*1.35)}" fill="${hollow(c) ? "var(--surface)" : colorVar(c)}" stroke="${hollow(c) ? colorVar(c) : "var(--ink)"}" stroke-width="${hollow(c) ? 2.5 : 1.5}"/>`;
+      s += `<text class="yr" x="${X + r*1.6 + 2}" y="${Y - r*1.2}">${esc(team)} ${short(p.s)}</text>`; });
+  }
+
+  // centroid labels
+  if (!team) {
+    const placed = [];
+    SHORT[K].forEach((l, c) => {
+      if (hidden.has(c)) return;
+      const mem = D.points.filter(p => cl(p) === c);
+      const cx = mem.reduce((a, p) => a + sx(val(p, xKey)), 0) / mem.length;
+      const cy = mem.reduce((a, p) => a + sy(val(p, yKey)), 0) / mem.length;
+      const w = l.length * 7.4 + 8, hgt = 17;
+      let left = Math.max(m.l, Math.min(W - m.r - w, cx - w / 2));
+      let top = cy - 12 - hgt, tries = 0;
+      const hit = (L, T) => placed.some(q => L < q.L + q.w && L + w > q.L && T < q.T + q.h && T + hgt > q.T);
+      while (hit(left, top) && tries < 12) { tries++; top = cy - 12 - hgt + (tries % 2 ? 1 : -1) * Math.ceil(tries / 2) * (hgt + 2); }
+      placed.push({ L: left, T: top, w, h: hgt });
+      s += `<path transform="translate(${cx},${cy})" d="M-5,0H5M0,-5V5" stroke="var(--ink)" stroke-width="2"/>`;
+      s += `<text class="cent" x="${left + w / 2}" y="${top + 13}" text-anchor="middle">${esc(l)}</text>`;
+    });
+  }
+  chart.innerHTML = s;
+  note.textContent = (xKey.startsWith("pc") && yKey.startsWith("pc"))
+    ? `Clusters were fit in 5 principal-component dimensions, so points that overlap in this 2D view can still be apart on the PCs not shown. The + marks each cluster's mean position.`
+    : `Raw feature values. Each season is scored against its own league average before clustering, so clusters can overlap on any single raw feature.`;
+}
+
+// ---------- hover / pin ----------
+function nearest(ev) {
+  const pt = chart.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+  const loc = pt.matrixTransform(chart.getScreenCTM().inverse());
+  let best = null, bd = 24 * 24;
+  screenPts.forEach(q => { const d = (q.X - loc.x) ** 2 + (q.Y - loc.y) ** 2; if (d < bd) { bd = d; best = q; } });
+  return best;
+}
+chart.addEventListener("pointermove", ev => {
+  const q = nearest(ev);
+  if (!q) { tip.hidden = true; return; }
+  const p = q.p, c = cl(p);
+  tip.innerHTML = `<div class="t"></div><div class="r">${swatch(c, 12)}<span></span></div><div class="m"></div>`;
+  tip.querySelector(".t").textContent = `${p.t} ${p.s}`;
+  tip.querySelector(".r span").textContent = labels()[c];
+  tip.querySelector(".m").textContent = `${xsel.selectedOptions[0].textContent.split(" (")[0]}: ${fmt(xKey, val(p, xKey))} · ${ysel.selectedOptions[0].textContent.split(" (")[0]}: ${fmt(yKey, val(p, yKey))}`;
+  tip.hidden = false;
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + tw > innerWidth - 8) x = ev.clientX - tw - 14;
+  if (y + th > innerHeight - 8) y = ev.clientY - th - 14;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+  if (!pinned) showPanel(p);
+});
+chart.addEventListener("pointerleave", () => { tip.hidden = true; if (!pinned) showPanel(null); });
+chart.addEventListener("click", ev => { const q = nearest(ev); pinned = q ? (pinned === q.p ? null : q.p) : null; draw(); showPanel(pinned); });
+
+function showPanel(p) {
+  if (!p) {
+    const P = D.profiles[K];
+    panel.innerHTML = `<div class="sub">How to read this</div><p class="hint">Hover a mark to see that team-season. Click to pin it. Use "Trace a team" to follow one offense across seasons.</p>
+    <div class="sub">Cluster tightness (mean silhouette)</div><div class="zlist" id="silList"></div>
+    <p class="hint">Silhouette runs from −1 to 1. The two small islands, QB-run/RPO and Shanahan wide-zone, are the most distinct. The big groups are broad regions of one continuum.</p>`;
+    const sl = panel.querySelector("#silList");
+    P.labels.forEach((l, c) => {
+      const row = document.createElement("div"); row.className = "zrow"; row.style.gridTemplateColumns = "1fr 70px 40px";
+      row.innerHTML = `<span class="chipc" style="font-weight:500;font-size:13px">${swatch(c, 15)}<span></span></span><div class="zbar nomid"><i style="left:0;width:${Math.max(0, P.sil[c]) / 0.4 * 100}%;background:${colorVar(c)}"></i></div><span class="v">${P.sil[c].toFixed(2)}</span>`;
+      row.querySelector(".chipc span").textContent = l;
+      sl.appendChild(row);
+    });
+    return;
+  }
+  const c = cl(p), sil = K === 5 ? p.sil5 : p.sil7, mg = K === 5 ? p.m5 : p.m7, ru = K === 5 ? p.ru5 : p.ru7;
+  const top = F.map((f, i) => ({ f, i, z: p.z[i] })).sort((a, b) => Math.abs(b.z) - Math.abs(a.z)).slice(0, 7);
+  panel.innerHTML = `<div class="sub">${pinned === p ? "Pinned · click again to release" : "Hovering"}</div>
+    <h2></h2><div class="chipc">${swatch(c)}<span id="cl"></span></div>
+    <dl class="kv"><dt>Silhouette</dt><dd>${sil.toFixed(3)}${sil < 0 ? " (closer to another cluster)" : ""}</dd>
+    <dt>Next-closest</dt><dd id="ru" style="font-family:var(--body);font-size:13.5px"></dd>
+    <dt title="1 minus distance to own centroid over distance to next-closest. Near 0 means on the boundary.">Margin</dt><dd>${mg.toFixed(2)}${mg < 0.1 ? " · borderline" : ""}</dd>
+    <dt>Neutral plays</dt><dd>${p.n}</dd></dl>
+    <div class="sub">Most distinctive vs. that season's league</div><div class="zlist" id="zl"></div>`;
+  panel.querySelector("h2").textContent = `${p.t} ${p.s}`;
+  panel.querySelector("#cl").textContent = labels()[c];
+  panel.querySelector("#ru").textContent = ru;
+  const zl = panel.querySelector("#zl");
+  top.forEach(t => {
+    const z = Math.max(-3, Math.min(3, t.z)), w = Math.abs(z) / 3 * 50;
+    const row = document.createElement("div"); row.className = "zrow";
+    row.innerHTML = `<span></span><div class="zbar"><i style="${z >= 0 ? `left:50%` : `left:${50 - w}%`};width:${w}%;background:${z >= 0 ? "var(--pos)" : "var(--neg)"}"></i></div><span class="v"></span>`;
+    row.children[0].textContent = FL[t.f][0];
+    row.children[2].textContent = fmt(t.f, p.f[t.i]);
+    row.title = `z = ${t.z.toFixed(2)}`;
+    zl.appendChild(row);
+  });
+}
+
+// ---------- heatmap + table ----------
+function mix(a, b, t) {
+  const h = s => [1,3,5].map(i => parseInt(s.slice(i, i+2), 16));
+  const A = h(a), B = h(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(",")})`;
+}
+function buildHeat() {
+  const P = D.profiles[K], cs = getComputedStyle(document.documentElement);
+  const mid = cs.getPropertyValue("--mid").trim(), neg = cs.getPropertyValue("--neg").trim(), pos = cs.getPropertyValue("--pos").trim();
+  const dark = cs.getPropertyValue("color-scheme").includes("dark");
+  let h = `<thead><tr><th></th>` + P.labels.map((l, c) => `<th>${swatch(c, 12)} ${esc(l)}<br><span class="m" style="font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:400">n=${P.n[c]}</span></th>`).join("") + `</tr></thead><tbody>`;
+  F.forEach((f, i) => {
+    h += `<tr><th>${esc(FL[f][0])}</th>` + P.z.map(zz => {
+      const z = zz[i], t = Math.min(1, Math.abs(z) / 2);
+      const bg = mix(mid, z >= 0 ? pos : neg, t * 0.85);
+      const light = t > 0.55;
+      return `<td style="background:${bg};color:${light ? "#fff" : "var(--ink)"}">${z >= 0 ? "+" : "−"}${Math.abs(z).toFixed(2)}</td>`;
+    }).join("") + `</tr>`;
+  });
+  heat.innerHTML = h + "</tbody>";
+}
+function buildRows() {
+  let h = `<thead><tr><th>Team</th><th>Season</th><th style="text-align:left">k=5 cluster</th><th style="text-align:left">k=7 cluster</th><th>Silhouette</th><th>Margin</th>` + F.map(f => `<th title="${esc(FL[f][0])}">${esc(f.replace(/_/g, " "))}</th>`).join("") + `</tr></thead><tbody>`;
+  [...D.points].sort((a, b) => a.t.localeCompare(b.t) || a.s - b.s).forEach(p => {
+    h += `<tr><td>${esc(p.t)}</td><td>${p.s}</td><td style="text-align:left;font-family:var(--body)">${esc(D.profiles[5].labels[p.c5])}</td><td style="text-align:left;font-family:var(--body)">${esc(D.profiles[7].labels[p.c7])}</td><td>${p.sil5.toFixed(2)}</td><td>${p.m5.toFixed(2)}</td>` + F.map((f, i) => `<td>${fmt(f, p.f[i])}</td>`).join("") + `</tr>`;
+  });
+  rows.innerHTML = h + "</tbody>";
+}
+
+buildStats(); buildLegend(); buildHeat(); buildRows(); draw(); showPanel(null);
+let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(draw, 80); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", buildHeat);
+new MutationObserver(buildHeat).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+</script>

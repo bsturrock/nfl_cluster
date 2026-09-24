@@ -56,4 +56,5 @@ bash src/identity/fetch_data.sh                   # nflverse parquet -> data/raw
 python3 src/identity/build_identity_features.py   # -> data/identity_features.csv
 python3 src/identity/reliability.py               # -> output/identity/feature_reliability.csv
 python3 src/identity/cluster_identity.py          # -> output/identity/*.csv
+python3 src/identity/build_scatter.py             # -> output/identity/identity_scatter.html
 ```

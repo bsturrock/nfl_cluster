@@ -90,8 +90,8 @@ select:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px
 #chart .cent { font-family: var(--display); font-weight: 700; font-size: 13.5px; fill: var(--ink); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
 #chart .yr { font-family: var(--mono); font-size: 11px; fill: var(--ink); font-weight: 500; paint-order: stroke; stroke: var(--surface); stroke-width: 3.5px; }
 .note { font-size: 13px; color: var(--muted); margin: 0; padding: 0 2px 4px; }
-.panel { padding: 16px; display: grid; gap: 12px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
-@media (max-width: 900px) { .panel { position: static; } }
+.panel { padding: 16px; display: grid; gap: 12px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); max-height: calc(100vh - 24px); overflow-y: auto; }
+@media (max-width: 900px) { .panel { position: static; max-height: none; } }
 .panel h2 { font-family: var(--display); font-size: 24px; font-weight: 700; margin: 0; line-height: 1.05; }
 .chipc { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; font-size: 14px; }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 13.5px; }
@@ -105,6 +105,15 @@ select:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px
 .zbar i { position: absolute; top: 1px; bottom: 1px; border-radius: 2px; }
 .zrow .v { font-family: var(--mono); font-size: 12px; text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .sub { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.seasons { display: grid; gap: 4px; font-size: 13.5px; }
+.seasons div { display: flex; align-items: center; gap: 8px; }
+.seasons .yr2 { font-family: var(--mono); font-size: 12px; color: var(--muted); width: 36px; }
+.step { display: grid; gap: 7px; padding-top: 12px; border-top: 1px solid var(--grid); }
+.step h4 { margin: 0; font-family: var(--display); font-size: 17px; font-weight: 700; line-height: 1.15; }
+.step .meta { font-family: var(--mono); font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+.crow { display: grid; grid-template-columns: 1fr 76px; gap: 10px; align-items: center; }
+.crow .fn { font-size: 13px; line-height: 1.2; }
+.crow .fv { font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .hint { font-size: 13px; color: var(--muted); margin: 0; }
 #tip { position: fixed; pointer-events: none; z-index: 10; background: var(--surface); border: 1px solid var(--ring); border-radius: 8px; padding: 8px 10px; box-shadow: 0 6px 20px rgba(0,0,0,.14); font-size: 13px; min-width: 170px; }
 #tip .t { font-family: var(--display); font-weight: 700; font-size: 17px; }
@@ -243,9 +252,9 @@ function fillAxisSelect(sel, def) {
 }
 fillAxisSelect(xsel, xKey); fillAxisSelect(ysel, yKey);
 [...new Set(D.points.map(p => p.t))].sort().forEach(t => tsel.appendChild(new Option(t, t)));
-xsel.onchange = () => { xKey = xsel.value; draw(); };
-ysel.onchange = () => { yKey = ysel.value; draw(); };
-tsel.onchange = () => { team = tsel.value; pinned = team ? D.points.filter(p => p.t === team).sort((a,b)=>b.s-a.s)[0] : null; draw(); showPanel(pinned); };
+xsel.onchange = () => { xKey = xsel.value; draw(); if (team && !pinned) showPanel(null); };
+ysel.onchange = () => { yKey = ysel.value; draw(); if (team && !pinned) showPanel(null); };
+tsel.onchange = () => { team = tsel.value; pinned = null; draw(); showPanel(null); };
 k5.onclick = () => setK(5); k7.onclick = () => setK(7);
 reset.onclick = () => { xKey = "pc0"; yKey = "pc1"; xsel.value = xKey; ysel.value = yKey; team = ""; tsel.value = ""; pinned = null; hidden.clear(); setK(5); };
 function setK(k) { K = k; k5.setAttribute("aria-pressed", k === 5); k7.setAttribute("aria-pressed", k === 7); hidden.clear(); buildLegend(); buildHeat(); draw(); showPanel(pinned); }
@@ -385,15 +394,16 @@ chart.addEventListener("pointermove", ev => {
   if (x + tw > innerWidth - 8) x = ev.clientX - tw - 14;
   if (y + th > innerHeight - 8) y = ev.clientY - th - 14;
   tip.style.left = x + "px"; tip.style.top = y + "px";
-  if (!pinned) showPanel(p);
+  if (!pinned && !team) showPanel(p);
 });
 chart.addEventListener("pointerleave", () => { tip.hidden = true; if (!pinned) showPanel(null); });
 chart.addEventListener("click", ev => { const q = nearest(ev); pinned = q ? (pinned === q.p ? null : q.p) : null; draw(); showPanel(pinned); });
 
 function showPanel(p) {
+  if (!p && team) return showTeam();
   if (!p) {
     const P = D.profiles[K];
-    panel.innerHTML = `<div class="sub">How to read this</div><p class="hint">Hover a mark to see that team-season. Click to pin it. Use "Trace a team" to follow one offense across seasons.</p>
+    panel.innerHTML = `<div class="sub">How to read this</div><p class="hint">Hover a mark to see that team-season. Click to pin it. Use "Trace a team" to follow one offense and see what changed each season.</p>
     <div class="sub">Cluster tightness (mean silhouette)</div><div class="zlist" id="silList"></div>
     <p class="hint">Silhouette runs from −1 to 1. The two small islands, QB-run/RPO and Shanahan wide-zone, are the most distinct. The big groups are broad regions of one continuum.</p>`;
     const sl = panel.querySelector("#silList");
@@ -407,7 +417,7 @@ function showPanel(p) {
   }
   const c = cl(p), sil = K === 5 ? p.sil5 : p.sil7, mg = K === 5 ? p.m5 : p.m7, ru = K === 5 ? p.ru5 : p.ru7;
   const top = F.map((f, i) => ({ f, i, z: p.z[i] })).sort((a, b) => Math.abs(b.z) - Math.abs(a.z)).slice(0, 7);
-  panel.innerHTML = `<div class="sub">${pinned === p ? "Pinned · click again to release" : "Hovering"}</div>
+  panel.innerHTML = `<div class="sub">${pinned === p ? (team ? `Pinned · click again to return to ${esc(team)}'s changes` : "Pinned · click again to release") : "Hovering"}</div>
     <h2></h2><div class="chipc">${swatch(c)}<span id="cl"></span></div>
     <dl class="kv"><dt>Silhouette</dt><dd>${sil.toFixed(3)}${sil < 0 ? " (closer to another cluster)" : ""}</dd>
     <dt>Next-closest</dt><dd id="ru" style="font-family:var(--body);font-size:13.5px"></dd>
@@ -427,6 +437,56 @@ function showPanel(p) {
     row.title = `z = ${t.z.toFixed(2)}`;
     zl.appendChild(row);
   });
+}
+
+// ---------- team trajectory: what changed ----------
+const zNorm = v => Math.sqrt(v.reduce((a, x) => a + x * x, 0));
+const LEAGUE_MOVE = (() => {
+  const by = {}; D.points.forEach(p => (by[p.t] = by[p.t] || []).push(p));
+  const mv = [];
+  Object.values(by).forEach(a => { a.sort((x, y) => x.s - y.s); for (let i = 1; i < a.length; i++) mv.push(zNorm(a[i].z.map((v, j) => v - a[i-1].z[j]))); });
+  mv.sort((a, b) => a - b); return mv[Math.floor(mv.length / 2)];
+})();
+function showTeam() {
+  const tp = D.points.filter(p => p.t === team).sort((a, b) => a.s - b.s);
+  panel.innerHTML = `<div class="sub">Tracing · click a mark for season detail</div><h2></h2><div class="seasons"></div>
+    <div class="sub">What changed, season to season</div>
+    <p class="hint">The five biggest shifts in each step, measured against that season's league average. Bars show the change in z-score; text shows the raw values.</p>`;
+  panel.querySelector("h2").textContent = team;
+  const ss = panel.querySelector(".seasons");
+  tp.forEach(p => {
+    const d = document.createElement("div");
+    d.innerHTML = `<span class="yr2">${p.s}</span>${swatch(cl(p), 13)}<span></span>`;
+    d.lastElementChild.textContent = labels()[cl(p)];
+    ss.appendChild(d);
+  });
+  const bothPC = xKey.startsWith("pc") && yKey.startsWith("pc");
+  for (let i = 1; i < tp.length; i++) {
+    const a = tp[i-1], b = tp[i];
+    const dz = b.z.map((v, j) => v - a.z[j]);
+    const tot = zNorm(dz);
+    const ca = labels()[cl(a)], cb = labels()[cl(b)];
+    let shown = "";
+    if (bothPC) {
+      const xi = +xKey.slice(2), yi = +yKey.slice(2);
+      const dx = b.pc[xi] - a.pc[xi], dy = xi === yi ? 0 : b.pc[yi] - a.pc[yi];
+      shown = ` · ${Math.round((dx * dx + dy * dy) / (tot * tot) * 100)}% of it visible on these axes`;
+    }
+    const st = document.createElement("div"); st.className = "step";
+    st.innerHTML = `<h4></h4><div class="meta"></div>`;
+    st.querySelector("h4").textContent = `${a.s} → ${b.s}: ` + (cl(a) === cl(b) ? `stayed ${SHORT[K][cl(a)]}` : `${SHORT[K][cl(a)]} → ${SHORT[K][cl(b)]}`);
+    st.querySelector(".meta").textContent = `Overall change ${tot.toFixed(1)} (league median ${LEAGUE_MOVE.toFixed(1)})${shown}`;
+    dz.map((d, j) => ({ d, j })).sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 5).forEach(({ d, j }) => {
+      const f = F[j], c = Math.max(-4, Math.min(4, d)), w = Math.abs(c) / 4 * 50;
+      const row = document.createElement("div"); row.className = "crow";
+      row.title = `z ${a.z[j].toFixed(1)} → ${b.z[j].toFixed(1)} (change ${d >= 0 ? "+" : ""}${d.toFixed(1)})`;
+      row.innerHTML = `<div><div class="fn"></div><div class="fv"></div></div><div class="zbar"><i style="${c >= 0 ? "left:50%" : `left:${50 - w}%`};width:${w}%;background:${c >= 0 ? "var(--pos)" : "var(--neg)"}"></i></div>`;
+      row.querySelector(".fn").textContent = FL[f][0];
+      row.querySelector(".fv").textContent = `${fmt(f, a.f[j])} → ${fmt(f, b.f[j])}`;
+      st.appendChild(row);
+    });
+    panel.appendChild(st);
+  }
 }
 
 // ---------- heatmap + table ----------

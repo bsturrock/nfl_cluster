@@ -4,13 +4,40 @@ shotgun+pistol snap share (y). Both from the neutral-script feature files.
 - outside = end + tackle runs, inside = guard + middle runs (share of rushes)
 - shotgun share counts pistol as shotgun; under center = 100 - y
 
-Output: output/run_formation_scatter_2025.html
+Teams are clustered on just these two dimensions (standardized, KMeans).
+k=6 is best on silhouette / Calinski-Harabasz / Davies-Bouldin across
+k=2-8, and Ward linkage gives the identical partition.
+
+Output: output/run_formation_scatter_2025.html,
+        output/run_formation_clusters_2025.csv
 """
 import csv
 import json
 
+import numpy as np
+from sklearn.cluster import AgglomerativeClustering, KMeans
+from sklearn.metrics import (adjusted_rand_score, calinski_harabasz_score,
+                             davies_bouldin_score, silhouette_samples,
+                             silhouette_score)
+from sklearn.preprocessing import StandardScaler
+
 SEASON = "2025"
+K = 6
+K_RANGE = range(2, 9)
+N_BOOT = 200
 OUT_PATH = "output/run_formation_scatter_2025.html"
+CSV_PATH = "output/run_formation_clusters_2025.csv"
+
+# Clusters are named by a member team rather than by KMeans index, so a
+# relabeling between runs can't silently swap names. Order = legend order.
+CLUSTER_NAMES = [
+    ("DET", "Under center"),
+    ("BAL", "Gun, outside lean"),
+    ("ATL", "Gun, stretch outside"),
+    ("WAS", "Heavy gun, balanced runs"),
+    ("CLE", "Gun, inside lean"),
+    ("CIN", "Heavy gun, heavy inside"),
+]
 
 
 def load(path, team_col):
@@ -38,10 +65,70 @@ def main():
             "rush_n": int(g["rush_n"]),
         })
 
-    html = TEMPLATE.replace("__DATA_JSON__", json.dumps(points))
+    X = StandardScaler().fit_transform([[p["x"], p["y"]] for p in points])
+    sweep = []
+    for k in K_RANGE:
+        labels = KMeans(k, n_init=50, random_state=0).fit_predict(X)
+        sweep.append({
+            "k": k,
+            "silhouette": round(float(silhouette_score(X, labels)), 3),
+            "calinski_harabasz": round(float(calinski_harabasz_score(X, labels)), 1),
+            "davies_bouldin": round(float(davies_bouldin_score(X, labels)), 3),
+            "sizes": sorted(np.bincount(labels).tolist(), reverse=True),
+        })
+
+    km = KMeans(K, n_init=50, random_state=0).fit(X)
+    labels = km.labels_
+    ward_ari = adjusted_rand_score(labels, AgglomerativeClustering(K, linkage="ward").fit_predict(X))
+    rng = np.random.default_rng(0)
+    boot = []
+    for i in range(N_BOOT):
+        idx = rng.choice(len(X), len(X), replace=True)
+        boot.append(adjusted_rand_score(labels, KMeans(K, n_init=10, random_state=i).fit(X[idx]).predict(X)))
+
+    team_idx = {p["team"]: i for i, p in enumerate(points)}
+    name_of = {labels[team_idx[t]]: (order, name) for order, (t, name) in enumerate(CLUSTER_NAMES)}
+    assert len(name_of) == K, "anchor teams no longer land in distinct clusters; rename"
+    sil = silhouette_samples(X, labels)
+    for i, p in enumerate(points):
+        p["cluster"], p["cluster_name"] = name_of[labels[i]]
+        p["sil"] = round(float(sil[i]), 2)
+
+    clusters = []
+    for order, (_, name) in enumerate(CLUSTER_NAMES):
+        members = [p for p in points if p["cluster"] == order]
+        clusters.append({
+            "name": name,
+            "teams": [p["team"] for p in members],
+            "x": round(float(np.mean([p["x"] for p in members])), 1),
+            "y": round(float(np.mean([p["y"] for p in members])), 1),
+            "sil": round(float(np.mean([p["sil"] for p in members])), 2),
+        })
+
+    stats = {
+        "k": K,
+        "silhouette": next(r["silhouette"] for r in sweep if r["k"] == K),
+        "ward_ari": round(float(ward_ari), 2),
+        "boot_ari_mean": round(float(np.mean(boot)), 2),
+        "boot_ari_p10": round(float(np.percentile(boot, 10)), 2),
+        "n_boot": N_BOOT,
+    }
+
+    payload = {"points": points, "clusters": clusters, "sweep": sweep, "stats": stats}
+    html = TEMPLATE.replace("__DATA_JSON__", json.dumps(payload))
     with open(OUT_PATH, "w") as out:
         out.write(html)
-    print(f"wrote {OUT_PATH} ({len(points)} teams)")
+
+    cols = ["team", "cluster_name", "x", "y", "outside", "inside", "uc", "pistol", "rush_n", "sil"]
+    with open(CSV_PATH, "w", newline="") as out:
+        w = csv.DictWriter(out, fieldnames=cols, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(sorted(points, key=lambda p: (p["cluster"], p["team"])))
+
+    print(f"wrote {OUT_PATH}, {CSV_PATH} ({len(points)} teams)")
+    print(json.dumps(stats))
+    for c in clusters:
+        print(f'{c["name"]:<26} x={c["x"]:>6} y={c["y"]:>5} sil={c["sil"]}  {" ".join(c["teams"])}')
 
 
 TEMPLATE = r"""<!doctype html>
@@ -60,6 +147,7 @@ TEMPLATE = r"""<!doctype html>
   --grid: #e6e5e1;
   --axis: #b9b8b2;
   --series-1: #2a78d6;
+  --c0: #2a78d6; --c1: #eb6834; --c2: #1baf7a; --c3: #eda100; --c4: #e87ba4; --c5: #008300;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -71,6 +159,7 @@ TEMPLATE = r"""<!doctype html>
     --grid: #2e2e2c;
     --axis: #55544f;
     --series-1: #3987e5;
+    --c0: #3987e5; --c1: #d95926; --c2: #199e70; --c3: #c98500; --c4: #d55181; --c5: #008300;
   }
 }
 :root[data-theme="dark"] {
@@ -82,6 +171,7 @@ TEMPLATE = r"""<!doctype html>
   --grid: #2e2e2c;
   --axis: #55544f;
   --series-1: #3987e5;
+--c0: #3987e5; --c1: #d95926; --c2: #199e70; --c3: #c98500; --c4: #d55181; --c5: #008300;
 }
 body { margin: 0; background: var(--surface-1); color: var(--text-primary);
   font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -94,10 +184,12 @@ svg { width: 100%; height: auto; display: block; overflow: visible; }
 .tick { fill: var(--text-muted); font-size: 11px; }
 .axis-title { fill: var(--text-secondary); font-size: 12px; }
 .quad { fill: var(--text-muted); font-size: 11px; font-style: italic; }
-.dot { fill: var(--series-1); stroke: var(--surface-1); stroke-width: 2; }
+.dot { stroke: var(--surface-1); stroke-width: 2; }
+.cent { fill: none; stroke-width: 1.5; stroke-dasharray: 3 2; opacity: .7; }
+#ctbl td:last-child, #ctbl th:last-child { text-align: left; }
 .lbl { fill: var(--text-primary); font-size: 11px; font-weight: 600; pointer-events: none; }
 .hit { fill: transparent; cursor: default; }
-.hit:hover + .dot, .dot.on { r: 7; }
+.dot.on { stroke: var(--text-primary); stroke-width: 1.5; }
 #tip { position: fixed; pointer-events: none; background: var(--surface-1);
   border: 1px solid var(--axis); border-radius: 6px; padding: 8px 10px;
   font-size: 12px; color: var(--text-primary); display: none;
@@ -109,23 +201,51 @@ table { border-collapse: collapse; font-size: 12px; margin-top: 8px; width: 100%
 th, td { padding: 4px 8px; text-align: right; border-bottom: 1px solid var(--grid); }
 th:first-child, td:first-child { text-align: left; }
 th { color: var(--text-secondary); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 0 8px; font-size: 12px; color: var(--text-secondary); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend svg { width: 12px; height: 12px; overflow: visible; }
+.stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0 4px; }
+.stat { border: 1px solid var(--grid); border-radius: 8px; padding: 8px 12px; min-width: 120px; }
+.stat b { display: block; font-size: 18px; }
+.stat span { color: var(--text-secondary); font-size: 12px; }
+h2 { font-size: 15px; margin: 24px 0 4px; }
+tr.pick td { font-weight: 700; }
 .note { color: var(--text-muted); font-size: 12px; margin-top: 12px; }
 </style>
 </head>
 <body>
 <main>
   <h1>Run direction vs snap formation, 2025</h1>
-  <p class="sub">Each dot is a 2025 offense. Neutral game script only (WP 20-80%, outside last 2 min of each half).</p>
+  <p class="sub">Each mark is a 2025 offense, colored and shaped by cluster (KMeans on these two dimensions only, standardized). Neutral game script only (WP 20-80%, outside last 2 min of each half). Dashed rings are cluster centers.</p>
+  <div class="legend" id="legend"></div>
   <svg id="chart" viewBox="0 0 900 620" role="img" aria-label="Scatter of 32 NFL offenses"></svg>
   <p class="note">X: outside runs (end + tackle gaps) minus inside runs (guard + middle), as a share of designed rushes, in percentage points. Y: share of snaps from shotgun or pistol; under center = 100 minus Y. Dashed lines are league averages.</p>
+  <div class="stats" id="stats"></div>
+  <h2>Clusters</h2>
+  <table id="ctbl"></table>
+  <h2>k sweep (KMeans, standardized)</h2>
+  <table id="ktbl"></table>
   <details>
-    <summary>Table view</summary>
+    <summary>Team table</summary>
     <table id="tbl"></table>
   </details>
 </main>
 <div id="tip"></div>
 <script>
-const data = __DATA_JSON__;
+const payload = __DATA_JSON__;
+const data = payload.points, clusters = payload.clusters, st = payload.stats;
+// color + shape double-encode cluster: 6 hues can't all separate for CVD in a scatter
+const shape = (c, r) => {
+  const a = r * 1.25;
+  return [
+    `M${r},0A${r},${r} 0 1,1 ${-r},0A${r},${r} 0 1,1 ${r},0Z`,
+    `M${-r*.9},${-r*.9}H${r*.9}V${r*.9}H${-r*.9}Z`,
+    `M0,${-a}L${a*.95},${a*.6}H${-a*.95}Z`,
+    `M0,${-a}L${a},0L0,${a}L${-a},0Z`,
+    `M0,${a}L${a*.95},${-a*.6}H${-a*.95}Z`,
+    `M${-r*.35},${-r}H${r*.35}V${-r*.35}H${r}V${r*.35}H${r*.35}V${r}H${-r*.35}V${r*.35}H${-r}V${-r*.35}H${-r*.35}Z`,
+  ][c];
+};
 const W = 900, H = 620, m = {t: 20, r: 24, b: 56, l: 64};
 const pw = W - m.l - m.r, ph = H - m.t - m.b;
 const NS = "http://www.w3.org/2000/svg";
@@ -166,6 +286,22 @@ el("text", {x: m.l + pw - 8, y: m.t + 14, "text-anchor": "end", class: "quad"}, 
 el("text", {x: m.l + 8, y: m.t + ph - 8, class: "quad"}, svg, "Under center / inside");
 el("text", {x: m.l + pw - 8, y: m.t + ph - 8, "text-anchor": "end", class: "quad"}, svg, "Under center / outside");
 
+clusters.forEach((c, i) => {
+  el("circle", {cx: sx(c.x), cy: sy(c.y), r: 9, class: "cent", stroke: `var(--c${i})`});
+});
+document.getElementById("legend").innerHTML = clusters.map((c, i) =>
+  `<span><svg viewBox="-7 -7 14 14"><path d="${shape(i, 5.5)}" fill="var(--c${i})"/></svg>${c.name} (${c.teams.length})</span>`).join("");
+document.getElementById("stats").innerHTML = [
+  [st.k, "clusters"], [st.silhouette, "silhouette"], [st.ward_ari, "ARI vs Ward"],
+  [st.boot_ari_mean, `bootstrap ARI, mean (n=${st.n_boot})`], [st.boot_ari_p10, "bootstrap ARI, 10th pct"],
+].map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+document.getElementById("ctbl").innerHTML =
+  "<tr><th>Cluster</th><th>n</th><th>Out - in (pp)</th><th>Shotgun+pistol %</th><th>Mean silhouette</th><th>Teams</th></tr>" +
+  clusters.map(c => `<tr><td>${c.name}</td><td>${c.teams.length}</td><td>${(c.x > 0 ? "+" : "") + c.x}</td><td>${c.y}</td><td>${c.sil}</td><td>${c.teams.join(", ")}</td></tr>`).join("");
+document.getElementById("ktbl").innerHTML =
+  "<tr><th>k</th><th>Silhouette</th><th>Calinski-Harabasz</th><th>Davies-Bouldin</th><th>Cluster sizes</th></tr>" +
+  payload.sweep.map(r => `<tr class="${r.k === st.k ? "pick" : ""}"><td>${r.k}</td><td>${r.silhouette}</td><td>${r.calinski_harabasz}</td><td>${r.davies_bouldin}</td><td>${r.sizes.join(" / ")}</td></tr>`).join("");
+
 // greedy label placement: try 8 spots around each dot, skip ones that hit placed labels/dots
 const placed = data.map(d => ({x: sx(d.x) - 6, y: sy(d.y) - 6, w: 12, h: 12}));
 const hits = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
@@ -174,12 +310,12 @@ const sign = v => (v > 0 ? "+" : "") + v;
 data.forEach(d => {
   const cx = sx(d.x), cy = sy(d.y);
   const hit = el("circle", {cx, cy, r: 12, class: "hit"});
-  const dot = el("circle", {cx, cy, r: 5, class: "dot"});
+  const dot = el("path", {d: shape(d.cluster, 5.5), transform: `translate(${cx} ${cy})`, class: "dot", fill: `var(--c${d.cluster})`});
   hit.addEventListener("mousemove", e => {
     dot.classList.add("on");
-    tip.innerHTML = `<b>${d.team}</b><br><span>Out - in:</span> ${sign(d.x)} pp (${d.outside}% / ${d.inside}%)` +
+    tip.innerHTML = `<b>${d.team}</b> <span>${d.cluster_name}</span><br><span>Out - in:</span> ${sign(d.x)} pp (${d.outside}% / ${d.inside}%)` +
       `<br><span>Shotgun+pistol:</span> ${d.y}% (pistol ${d.pistol}%)<br><span>Under center:</span> ${d.uc}%` +
-      `<br><span>Designed rushes:</span> ${d.rush_n}`;
+      `<br><span>Designed rushes:</span> ${d.rush_n}<br><span>Silhouette:</span> ${d.sil}`;
     tip.style.display = "block";
     const tx = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
     tip.style.left = tx + "px"; tip.style.top = (e.clientY + 14) + "px";
@@ -201,8 +337,8 @@ data.forEach(d => {
 
 const rows = [...data].sort((a, b) => b.x - a.x);
 document.getElementById("tbl").innerHTML =
-  "<tr><th>Team</th><th>Out - in (pp)</th><th>Outside %</th><th>Inside %</th><th>Shotgun+pistol %</th><th>Pistol %</th><th>Under center %</th><th>Rushes</th></tr>" +
-  rows.map(d => `<tr><td>${d.team}</td><td>${sign(d.x)}</td><td>${d.outside}</td><td>${d.inside}</td><td>${d.y}</td><td>${d.pistol}</td><td>${d.uc}</td><td>${d.rush_n}</td></tr>`).join("");
+  "<tr><th>Team</th><th>Cluster</th><th>Out - in (pp)</th><th>Outside %</th><th>Inside %</th><th>Shotgun+pistol %</th><th>Pistol %</th><th>Under center %</th><th>Rushes</th></tr>" +
+  rows.map(d => `<tr><td>${d.team}</td><td>${d.cluster_name}</td><td>${sign(d.x)}</td><td>${d.outside}</td><td>${d.inside}</td><td>${d.y}</td><td>${d.pistol}</td><td>${d.uc}</td><td>${d.rush_n}</td></tr>`).join("");
 </script>
 </body>
 </html>

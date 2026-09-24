@@ -14,6 +14,7 @@
   --grid: #e6e5e1;
   --axis: #b9b8b2;
   --series-1: #2a78d6;
+  --c0: #2a78d6; --c1: #eb6834; --c2: #1baf7a; --c3: #eda100; --c4: #e87ba4; --c5: #008300;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -25,6 +26,7 @@
     --grid: #2e2e2c;
     --axis: #55544f;
     --series-1: #3987e5;
+    --c0: #3987e5; --c1: #d95926; --c2: #199e70; --c3: #c98500; --c4: #d55181; --c5: #008300;
   }
 }
 :root[data-theme="dark"] {
@@ -36,6 +38,7 @@
   --grid: #2e2e2c;
   --axis: #55544f;
   --series-1: #3987e5;
+--c0: #3987e5; --c1: #d95926; --c2: #199e70; --c3: #c98500; --c4: #d55181; --c5: #008300;
 }
 body { margin: 0; background: var(--surface-1); color: var(--text-primary);
   font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -48,10 +51,12 @@ svg { width: 100%; height: auto; display: block; overflow: visible; }
 .tick { fill: var(--text-muted); font-size: 11px; }
 .axis-title { fill: var(--text-secondary); font-size: 12px; }
 .quad { fill: var(--text-muted); font-size: 11px; font-style: italic; }
-.dot { fill: var(--series-1); stroke: var(--surface-1); stroke-width: 2; }
+.dot { stroke: var(--surface-1); stroke-width: 2; }
+.cent { fill: none; stroke-width: 1.5; stroke-dasharray: 3 2; opacity: .7; }
+#ctbl td:last-child, #ctbl th:last-child { text-align: left; }
 .lbl { fill: var(--text-primary); font-size: 11px; font-weight: 600; pointer-events: none; }
 .hit { fill: transparent; cursor: default; }
-.hit:hover + .dot, .dot.on { r: 7; }
+.dot.on { stroke: var(--text-primary); stroke-width: 1.5; }
 #tip { position: fixed; pointer-events: none; background: var(--surface-1);
   border: 1px solid var(--axis); border-radius: 6px; padding: 8px 10px;
   font-size: 12px; color: var(--text-primary); display: none;
@@ -63,23 +68,51 @@ table { border-collapse: collapse; font-size: 12px; margin-top: 8px; width: 100%
 th, td { padding: 4px 8px; text-align: right; border-bottom: 1px solid var(--grid); }
 th:first-child, td:first-child { text-align: left; }
 th { color: var(--text-secondary); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 0 8px; font-size: 12px; color: var(--text-secondary); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend svg { width: 12px; height: 12px; overflow: visible; }
+.stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0 4px; }
+.stat { border: 1px solid var(--grid); border-radius: 8px; padding: 8px 12px; min-width: 120px; }
+.stat b { display: block; font-size: 18px; }
+.stat span { color: var(--text-secondary); font-size: 12px; }
+h2 { font-size: 15px; margin: 24px 0 4px; }
+tr.pick td { font-weight: 700; }
 .note { color: var(--text-muted); font-size: 12px; margin-top: 12px; }
 </style>
 </head>
 <body>
 <main>
   <h1>Run direction vs snap formation, 2025</h1>
-  <p class="sub">Each dot is a 2025 offense. Neutral game script only (WP 20-80%, outside last 2 min of each half).</p>
+  <p class="sub">Each mark is a 2025 offense, colored and shaped by cluster (KMeans on these two dimensions only, standardized). Neutral game script only (WP 20-80%, outside last 2 min of each half). Dashed rings are cluster centers.</p>
+  <div class="legend" id="legend"></div>
   <svg id="chart" viewBox="0 0 900 620" role="img" aria-label="Scatter of 32 NFL offenses"></svg>
   <p class="note">X: outside runs (end + tackle gaps) minus inside runs (guard + middle), as a share of designed rushes, in percentage points. Y: share of snaps from shotgun or pistol; under center = 100 minus Y. Dashed lines are league averages.</p>
+  <div class="stats" id="stats"></div>
+  <h2>Clusters</h2>
+  <table id="ctbl"></table>
+  <h2>k sweep (KMeans, standardized)</h2>
+  <table id="ktbl"></table>
   <details>
-    <summary>Table view</summary>
+    <summary>Team table</summary>
     <table id="tbl"></table>
   </details>
 </main>
 <div id="tip"></div>
 <script>
-const data = [{"team": "ARI", "x": 15.9, "y": 62.2, "outside": 58.0, "inside": 42.0, "uc": 37.8, "pistol": 3.1, "rush_n": 176}, {"team": "ATL", "x": 27.6, "y": 78.7, "outside": 63.8, "inside": 36.2, "uc": 21.3, "pistol": 34.8, "rush_n": 279}, {"team": "BAL", "x": 6.3, "y": 63.8, "outside": 53.1, "inside": 46.9, "uc": 36.2, "pistol": 7.3, "rush_n": 271}, {"team": "BUF", "x": -10.4, "y": 52.2, "outside": 44.8, "inside": 55.2, "uc": 47.8, "pistol": 2.0, "rush_n": 288}, {"team": "CAR", "x": -21.7, "y": 62.6, "outside": 39.1, "inside": 60.9, "uc": 37.4, "pistol": 9.5, "rush_n": 276}, {"team": "CHI", "x": 0.9, "y": 47.3, "outside": 50.5, "inside": 49.5, "uc": 52.7, "pistol": 2.3, "rush_n": 319}, {"team": "CIN", "x": -33.0, "y": 79.4, "outside": 33.5, "inside": 66.5, "uc": 20.6, "pistol": 3.6, "rush_n": 206}, {"team": "CLE", "x": -17.5, "y": 59.5, "outside": 41.2, "inside": 58.8, "uc": 40.5, "pistol": 2.8, "rush_n": 257}, {"team": "DAL", "x": -13.5, "y": 58.8, "outside": 43.2, "inside": 56.8, "uc": 41.2, "pistol": 2.5, "rush_n": 259}, {"team": "DEN", "x": 7.9, "y": 65.1, "outside": 54.0, "inside": 46.0, "uc": 34.9, "pistol": 5.1, "rush_n": 291}, {"team": "DET", "x": 9.2, "y": 45.9, "outside": 54.6, "inside": 45.4, "uc": 54.1, "pistol": 0.5, "rush_n": 260}, {"team": "GB", "x": 0.3, "y": 60.9, "outside": 50.2, "inside": 49.8, "uc": 39.1, "pistol": 7.0, "rush_n": 303}, {"team": "HOU", "x": -26.2, "y": 60.3, "outside": 36.9, "inside": 63.1, "uc": 39.7, "pistol": 0.0, "rush_n": 282}, {"team": "IND", "x": -27.8, "y": 71.8, "outside": 36.1, "inside": 63.9, "uc": 28.2, "pistol": 4.5, "rush_n": 255}, {"team": "JAX", "x": -9.6, "y": 61.6, "outside": 45.2, "inside": 54.8, "uc": 38.4, "pistol": 3.0, "rush_n": 239}, {"team": "KC", "x": -13.9, "y": 78.2, "outside": 43.0, "inside": 57.0, "uc": 21.8, "pistol": 3.5, "rush_n": 244}, {"team": "LA", "x": -9.2, "y": 39.7, "outside": 45.4, "inside": 54.6, "uc": 60.3, "pistol": 0.1, "rush_n": 284}, {"team": "LAC", "x": -11.6, "y": 67.3, "outside": 44.2, "inside": 55.8, "uc": 32.7, "pistol": 4.1, "rush_n": 224}, {"team": "LV", "x": -31.2, "y": 58.7, "outside": 34.4, "inside": 65.6, "uc": 41.3, "pistol": 4.2, "rush_n": 218}, {"team": "MIA", "x": 26.3, "y": 69.5, "outside": 63.1, "inside": 36.9, "uc": 30.5, "pistol": 20.2, "rush_n": 198}, {"team": "MIN", "x": 4.4, "y": 49.9, "outside": 52.2, "inside": 47.8, "uc": 50.1, "pistol": 0.9, "rush_n": 228}, {"team": "NE", "x": -13.9, "y": 56.3, "outside": 43.1, "inside": 56.9, "uc": 43.7, "pistol": 0.1, "rush_n": 274}, {"team": "NO", "x": -22.7, "y": 74.0, "outside": 38.7, "inside": 61.3, "uc": 26.0, "pistol": 4.0, "rush_n": 256}, {"team": "NYG", "x": -1.4, "y": 72.9, "outside": 49.3, "inside": 50.7, "uc": 27.1, "pistol": 7.8, "rush_n": 276}, {"team": "NYJ", "x": -12.0, "y": 66.4, "outside": 44.0, "inside": 56.0, "uc": 33.6, "pistol": 5.2, "rush_n": 225}, {"team": "PHI", "x": -3.9, "y": 76.8, "outside": 48.0, "inside": 52.0, "uc": 23.2, "pistol": 6.5, "rush_n": 281}, {"team": "PIT", "x": 6.8, "y": 64.8, "outside": 53.4, "inside": 46.6, "uc": 35.2, "pistol": 2.4, "rush_n": 266}, {"team": "SEA", "x": 0.0, "y": 44.3, "outside": 50.0, "inside": 50.0, "uc": 55.7, "pistol": 3.6, "rush_n": 266}, {"team": "SF", "x": -9.4, "y": 51.6, "outside": 45.3, "inside": 54.7, "uc": 48.4, "pistol": 2.6, "rush_n": 267}, {"team": "TB", "x": -14.1, "y": 61.2, "outside": 43.0, "inside": 57.0, "uc": 38.8, "pistol": 4.3, "rush_n": 291}, {"team": "TEN", "x": -1.0, "y": 63.7, "outside": 49.5, "inside": 50.5, "uc": 36.3, "pistol": 2.6, "rush_n": 200}, {"team": "WAS", "x": -3.4, "y": 85.2, "outside": 48.3, "inside": 51.7, "uc": 14.8, "pistol": 19.7, "rush_n": 236}];
+const payload = {"points": [{"team": "ARI", "x": 15.9, "y": 62.2, "outside": 58.0, "inside": 42.0, "uc": 37.8, "pistol": 3.1, "rush_n": 176, "cluster": 1, "cluster_name": "Gun, outside lean", "sil": 0.38}, {"team": "ATL", "x": 27.6, "y": 78.7, "outside": 63.8, "inside": 36.2, "uc": 21.3, "pistol": 34.8, "rush_n": 279, "cluster": 2, "cluster_name": "Gun, stretch outside", "sil": 0.58}, {"team": "BAL", "x": 6.3, "y": 63.8, "outside": 53.1, "inside": 46.9, "uc": 36.2, "pistol": 7.3, "rush_n": 271, "cluster": 1, "cluster_name": "Gun, outside lean", "sil": 0.76}, {"team": "BUF", "x": -10.4, "y": 52.2, "outside": 44.8, "inside": 55.2, "uc": 47.8, "pistol": 2.0, "rush_n": 288, "cluster": 0, "cluster_name": "Under center", "sil": 0.1}, {"team": "CAR", "x": -21.7, "y": 62.6, "outside": 39.1, "inside": 60.9, "uc": 37.4, "pistol": 9.5, "rush_n": 276, "cluster": 4, "cluster_name": "Gun, inside lean", "sil": 0.47}, {"team": "CHI", "x": 0.9, "y": 47.3, "outside": 50.5, "inside": 49.5, "uc": 52.7, "pistol": 2.3, "rush_n": 319, "cluster": 0, "cluster_name": "Under center", "sil": 0.59}, {"team": "CIN", "x": -33.0, "y": 79.4, "outside": 33.5, "inside": 66.5, "uc": 20.6, "pistol": 3.6, "rush_n": 206, "cluster": 5, "cluster_name": "Heavy gun, heavy inside", "sil": 0.57}, {"team": "CLE", "x": -17.5, "y": 59.5, "outside": 41.2, "inside": 58.8, "uc": 40.5, "pistol": 2.8, "rush_n": 257, "cluster": 4, "cluster_name": "Gun, inside lean", "sil": 0.65}, {"team": "DAL", "x": -13.5, "y": 58.8, "outside": 43.2, "inside": 56.8, "uc": 41.2, "pistol": 2.5, "rush_n": 259, "cluster": 4, "cluster_name": "Gun, inside lean", "sil": 0.57}, {"team": "DEN", "x": 7.9, "y": 65.1, "outside": 54.0, "inside": 46.0, "uc": 34.9, "pistol": 5.1, "rush_n": 291, "cluster": 1, "cluster_name": "Gun, outside lean", "sil": 0.73}, {"team": "DET", "x": 9.2, "y": 45.9, "outside": 54.6, "inside": 45.4, "uc": 54.1, "pistol": 0.5, "rush_n": 260, "cluster": 0, "cluster_name": "Under center", "sil": 0.41}, {"team": "GB", "x": 0.3, "y": 60.9, "outside": 50.2, "inside": 49.8, "uc": 39.1, "pistol": 7.0, "rush_n": 303, "cluster": 1, "cluster_name": "Gun, outside lean", "sil": 0.51}, {"team": "HOU", "x": -26.2, "y": 60.3, "outside": 36.9, "inside": 63.1, "uc": 39.7, "pistol": 0.0, "rush_n": 282, "cluster": 4, "cluster_name": "Gun, inside lean", "sil": 0.41}, {"team": "IND", "x": -27.8, "y": 71.8, "outside": 36.1, "inside": 63.9, "uc": 28.2, "pistol": 4.5, "rush_n": 255, "cluster": 5, "cluster_name": "Heavy gun, heavy inside", "sil": 0.55}, {"team": "JAX", "x": -9.6, "y": 61.6, "outside": 45.2, "inside": 54.8, "uc": 38.4, "pistol": 3.0, "rush_n": 239, "cluster": 4, "cluster_name": "Gun, inside lean", "sil": 0.36}, {"team": "KC", "x": -13.9, "y": 78.2, "outside": 43.0, "inside": 57.0, "uc": 21.8, "pistol": 3.5, "rush_n": 244, "cluster": 3, "cluster_name": "Heavy gun, balanced runs", "sil": 0.16}, {"team": "LA", "x": -9.2, "y": 39.7, "outside": 45.4, "inside": 54.6, "uc": 60.3, "pistol": 0.1, "rush_n": 284, "cluster": 0, "cluster_name": "Under center", "sil": 0.47}, {"team": "LAC", "x": -11.6, "y": 67.3, "outside": 44.2, "inside": 55.8, "uc": 32.7, "pistol": 4.1, "rush_n": 224, "cluster": 4, "cluster_name": "Gun, inside lean", "sil": 0.29}, {"team": "LV", "x": -31.2, "y": 58.7, "outside": 34.4, "inside": 65.6, "uc": 41.3, "pistol": 4.2, "rush_n": 218, "cluster": 4, "cluster_name": "Gun, inside lean", "sil": 0.28}, {"team": "MIA", "x": 26.3, "y": 69.5, "outside": 63.1, "inside": 36.9, "uc": 30.5, "pistol": 20.2, "rush_n": 198, "cluster": 2, "cluster_name": "Gun, stretch outside", "sil": 0.43}, {"team": "MIN", "x": 4.4, "y": 49.9, "outside": 52.2, "inside": 47.8, "uc": 50.1, "pistol": 0.9, "rush_n": 228, "cluster": 0, "cluster_name": "Under center", "sil": 0.4}, {"team": "NE", "x": -13.9, "y": 56.3, "outside": 43.1, "inside": 56.9, "uc": 43.7, "pistol": 0.1, "rush_n": 274, "cluster": 4, "cluster_name": "Gun, inside lean", "sil": 0.41}, {"team": "NO", "x": -22.7, "y": 74.0, "outside": 38.7, "inside": 61.3, "uc": 26.0, "pistol": 4.0, "rush_n": 256, "cluster": 5, "cluster_name": "Heavy gun, heavy inside", "sil": 0.51}, {"team": "NYG", "x": -1.4, "y": 72.9, "outside": 49.3, "inside": 50.7, "uc": 27.1, "pistol": 7.8, "rush_n": 276, "cluster": 3, "cluster_name": "Heavy gun, balanced runs", "sil": 0.21}, {"team": "NYJ", "x": -12.0, "y": 66.4, "outside": 44.0, "inside": 56.0, "uc": 33.6, "pistol": 5.2, "rush_n": 225, "cluster": 4, "cluster_name": "Gun, inside lean", "sil": 0.39}, {"team": "PHI", "x": -3.9, "y": 76.8, "outside": 48.0, "inside": 52.0, "uc": 23.2, "pistol": 6.5, "rush_n": 281, "cluster": 3, "cluster_name": "Heavy gun, balanced runs", "sil": 0.57}, {"team": "PIT", "x": 6.8, "y": 64.8, "outside": 53.4, "inside": 46.6, "uc": 35.2, "pistol": 2.4, "rush_n": 266, "cluster": 1, "cluster_name": "Gun, outside lean", "sil": 0.75}, {"team": "SEA", "x": 0.0, "y": 44.3, "outside": 50.0, "inside": 50.0, "uc": 55.7, "pistol": 3.6, "rush_n": 266, "cluster": 0, "cluster_name": "Under center", "sil": 0.62}, {"team": "SF", "x": -9.4, "y": 51.6, "outside": 45.3, "inside": 54.7, "uc": 48.4, "pistol": 2.6, "rush_n": 267, "cluster": 0, "cluster_name": "Under center", "sil": 0.22}, {"team": "TB", "x": -14.1, "y": 61.2, "outside": 43.0, "inside": 57.0, "uc": 38.8, "pistol": 4.3, "rush_n": 291, "cluster": 4, "cluster_name": "Gun, inside lean", "sil": 0.61}, {"team": "TEN", "x": -1.0, "y": 63.7, "outside": 49.5, "inside": 50.5, "uc": 36.3, "pistol": 2.6, "rush_n": 200, "cluster": 1, "cluster_name": "Gun, outside lean", "sil": 0.47}, {"team": "WAS", "x": -3.4, "y": 85.2, "outside": 48.3, "inside": 51.7, "uc": 14.8, "pistol": 19.7, "rush_n": 236, "cluster": 3, "cluster_name": "Heavy gun, balanced runs", "sil": 0.5}], "clusters": [{"name": "Under center", "teams": ["BUF", "CHI", "DET", "LA", "MIN", "SEA", "SF"], "x": -2.1, "y": 47.3, "sil": 0.4}, {"name": "Gun, outside lean", "teams": ["ARI", "BAL", "DEN", "GB", "PIT", "TEN"], "x": 6.0, "y": 63.4, "sil": 0.6}, {"name": "Gun, stretch outside", "teams": ["ATL", "MIA"], "x": 27.0, "y": 74.1, "sil": 0.51}, {"name": "Heavy gun, balanced runs", "teams": ["KC", "NYG", "PHI", "WAS"], "x": -5.6, "y": 78.3, "sil": 0.36}, {"name": "Gun, inside lean", "teams": ["CAR", "CLE", "DAL", "HOU", "JAX", "LAC", "LV", "NE", "NYJ", "TB"], "x": -17.1, "y": 61.3, "sil": 0.44}, {"name": "Heavy gun, heavy inside", "teams": ["CIN", "IND", "NO"], "x": -27.8, "y": 75.1, "sil": 0.54}], "sweep": [{"k": 2, "silhouette": 0.331, "calinski_harabasz": 18.1, "davies_bouldin": 1.169, "sizes": [17, 15]}, {"k": 3, "silhouette": 0.396, "calinski_harabasz": 24.3, "davies_bouldin": 0.851, "sizes": [14, 11, 7]}, {"k": 4, "silhouette": 0.407, "calinski_harabasz": 26.1, "davies_bouldin": 0.782, "sizes": [10, 9, 7, 6]}, {"k": 5, "silhouette": 0.427, "calinski_harabasz": 28.5, "davies_bouldin": 0.699, "sizes": [10, 7, 7, 6, 2]}, {"k": 6, "silhouette": 0.466, "calinski_harabasz": 33.8, "davies_bouldin": 0.581, "sizes": [10, 7, 6, 4, 3, 2]}, {"k": 7, "silhouette": 0.446, "calinski_harabasz": 34.9, "davies_bouldin": 0.585, "sizes": [7, 7, 6, 4, 3, 3, 2]}, {"k": 8, "silhouette": 0.449, "calinski_harabasz": 37.2, "davies_bouldin": 0.578, "sizes": [6, 6, 5, 4, 3, 3, 3, 2]}], "stats": {"k": 6, "silhouette": 0.466, "ward_ari": 1.0, "boot_ari_mean": 0.71, "boot_ari_p10": 0.48, "n_boot": 200}};
+const data = payload.points, clusters = payload.clusters, st = payload.stats;
+// color + shape double-encode cluster: 6 hues can't all separate for CVD in a scatter
+const shape = (c, r) => {
+  const a = r * 1.25;
+  return [
+    `M${r},0A${r},${r} 0 1,1 ${-r},0A${r},${r} 0 1,1 ${r},0Z`,
+    `M${-r*.9},${-r*.9}H${r*.9}V${r*.9}H${-r*.9}Z`,
+    `M0,${-a}L${a*.95},${a*.6}H${-a*.95}Z`,
+    `M0,${-a}L${a},0L0,${a}L${-a},0Z`,
+    `M0,${a}L${a*.95},${-a*.6}H${-a*.95}Z`,
+    `M${-r*.35},${-r}H${r*.35}V${-r*.35}H${r}V${r*.35}H${r*.35}V${r}H${-r*.35}V${r*.35}H${-r}V${-r*.35}H${-r*.35}Z`,
+  ][c];
+};
 const W = 900, H = 620, m = {t: 20, r: 24, b: 56, l: 64};
 const pw = W - m.l - m.r, ph = H - m.t - m.b;
 const NS = "http://www.w3.org/2000/svg";
@@ -120,6 +153,22 @@ el("text", {x: m.l + pw - 8, y: m.t + 14, "text-anchor": "end", class: "quad"}, 
 el("text", {x: m.l + 8, y: m.t + ph - 8, class: "quad"}, svg, "Under center / inside");
 el("text", {x: m.l + pw - 8, y: m.t + ph - 8, "text-anchor": "end", class: "quad"}, svg, "Under center / outside");
 
+clusters.forEach((c, i) => {
+  el("circle", {cx: sx(c.x), cy: sy(c.y), r: 9, class: "cent", stroke: `var(--c${i})`});
+});
+document.getElementById("legend").innerHTML = clusters.map((c, i) =>
+  `<span><svg viewBox="-7 -7 14 14"><path d="${shape(i, 5.5)}" fill="var(--c${i})"/></svg>${c.name} (${c.teams.length})</span>`).join("");
+document.getElementById("stats").innerHTML = [
+  [st.k, "clusters"], [st.silhouette, "silhouette"], [st.ward_ari, "ARI vs Ward"],
+  [st.boot_ari_mean, `bootstrap ARI, mean (n=${st.n_boot})`], [st.boot_ari_p10, "bootstrap ARI, 10th pct"],
+].map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+document.getElementById("ctbl").innerHTML =
+  "<tr><th>Cluster</th><th>n</th><th>Out - in (pp)</th><th>Shotgun+pistol %</th><th>Mean silhouette</th><th>Teams</th></tr>" +
+  clusters.map(c => `<tr><td>${c.name}</td><td>${c.teams.length}</td><td>${(c.x > 0 ? "+" : "") + c.x}</td><td>${c.y}</td><td>${c.sil}</td><td>${c.teams.join(", ")}</td></tr>`).join("");
+document.getElementById("ktbl").innerHTML =
+  "<tr><th>k</th><th>Silhouette</th><th>Calinski-Harabasz</th><th>Davies-Bouldin</th><th>Cluster sizes</th></tr>" +
+  payload.sweep.map(r => `<tr class="${r.k === st.k ? "pick" : ""}"><td>${r.k}</td><td>${r.silhouette}</td><td>${r.calinski_harabasz}</td><td>${r.davies_bouldin}</td><td>${r.sizes.join(" / ")}</td></tr>`).join("");
+
 // greedy label placement: try 8 spots around each dot, skip ones that hit placed labels/dots
 const placed = data.map(d => ({x: sx(d.x) - 6, y: sy(d.y) - 6, w: 12, h: 12}));
 const hits = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
@@ -128,12 +177,12 @@ const sign = v => (v > 0 ? "+" : "") + v;
 data.forEach(d => {
   const cx = sx(d.x), cy = sy(d.y);
   const hit = el("circle", {cx, cy, r: 12, class: "hit"});
-  const dot = el("circle", {cx, cy, r: 5, class: "dot"});
+  const dot = el("path", {d: shape(d.cluster, 5.5), transform: `translate(${cx} ${cy})`, class: "dot", fill: `var(--c${d.cluster})`});
   hit.addEventListener("mousemove", e => {
     dot.classList.add("on");
-    tip.innerHTML = `<b>${d.team}</b><br><span>Out - in:</span> ${sign(d.x)} pp (${d.outside}% / ${d.inside}%)` +
+    tip.innerHTML = `<b>${d.team}</b> <span>${d.cluster_name}</span><br><span>Out - in:</span> ${sign(d.x)} pp (${d.outside}% / ${d.inside}%)` +
       `<br><span>Shotgun+pistol:</span> ${d.y}% (pistol ${d.pistol}%)<br><span>Under center:</span> ${d.uc}%` +
-      `<br><span>Designed rushes:</span> ${d.rush_n}`;
+      `<br><span>Designed rushes:</span> ${d.rush_n}<br><span>Silhouette:</span> ${d.sil}`;
     tip.style.display = "block";
     const tx = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
     tip.style.left = tx + "px"; tip.style.top = (e.clientY + 14) + "px";
@@ -155,8 +204,8 @@ data.forEach(d => {
 
 const rows = [...data].sort((a, b) => b.x - a.x);
 document.getElementById("tbl").innerHTML =
-  "<tr><th>Team</th><th>Out - in (pp)</th><th>Outside %</th><th>Inside %</th><th>Shotgun+pistol %</th><th>Pistol %</th><th>Under center %</th><th>Rushes</th></tr>" +
-  rows.map(d => `<tr><td>${d.team}</td><td>${sign(d.x)}</td><td>${d.outside}</td><td>${d.inside}</td><td>${d.y}</td><td>${d.pistol}</td><td>${d.uc}</td><td>${d.rush_n}</td></tr>`).join("");
+  "<tr><th>Team</th><th>Cluster</th><th>Out - in (pp)</th><th>Outside %</th><th>Inside %</th><th>Shotgun+pistol %</th><th>Pistol %</th><th>Under center %</th><th>Rushes</th></tr>" +
+  rows.map(d => `<tr><td>${d.team}</td><td>${d.cluster_name}</td><td>${sign(d.x)}</td><td>${d.outside}</td><td>${d.inside}</td><td>${d.y}</td><td>${d.pistol}</td><td>${d.uc}</td><td>${d.rush_n}</td></tr>`).join("");
 </script>
 </body>
 </html>

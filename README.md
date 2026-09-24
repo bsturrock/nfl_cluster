@@ -37,6 +37,7 @@ python3 src/build_run_features.py          # -> data/run_play_features.csv (desi
 python3 src/build_run_formation_scatter.py # -> output/run_formation_scatter_2025.html
 python3 src/build_colored_scatters.py      # -> output/{personnel,te_motion}_scatter_2025.html
 python3 src/cluster_run_identity.py        # -> output/run_identity_clusters_2025.csv, run_identity_summary_2025.json
+python3 src/build_run_identity_viz.py      # -> output/run_identity_viz_2025.html
 ```
 
 ## Notes

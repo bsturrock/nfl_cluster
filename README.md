@@ -33,11 +33,13 @@ pip install -r requirements.txt
 python3 src/build_features.py   # -> data/team_season_features.csv
 python3 src/cluster.py          # -> output/team_season_clusters.csv
 python3 src/build_viz.py        # -> output/cluster_viz.html (interactive)
-python3 src/build_run_features.py          # -> data/run_play_features.csv (designed non-QB runs)
+python3 src/build_run_features.py          # -> data/run_play_features.csv (designed runs, 2022-2025 team-seasons)
 python3 src/build_run_formation_scatter.py # -> output/run_formation_scatter_2025.html
 python3 src/build_colored_scatters.py      # -> output/{personnel,te_motion}_scatter_2025.html
 python3 src/cluster_run_identity.py        # -> output/run_identity_clusters_2025.csv, run_identity_summary_2025.json
 python3 src/build_run_identity_viz.py      # -> output/run_identity_viz_2025.html
+python3 src/archetypes_run_identity.py     # -> output/run_archetypes.csv, run_archetypes_summary.json
+python3 src/build_run_archetype_viz.py     # -> output/run_archetypes_viz.html
 ```
 
 ## Notes

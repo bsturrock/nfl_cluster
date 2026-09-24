@@ -5,17 +5,22 @@ Features measure tendencies only (what an offense chooses to do), never efficien
 The model clusters on **7 named themes** (for example "Under center vs gun/RPO", "Wide-zone package") built from 16 features.
 Code: `src/identity/`. Full tables: `output/identity/*.csv`. Interactive scatter: `output/identity/identity_scatter.html`.
 
-## 0. Bottom line on how strong the clusters are
+## 0. Bottom line
 
-**Offensive identity is mostly a continuum, not a set of natural types.** The clusters are a useful way to cut that continuum, but the data doesn't strongly support discrete groups.
+**Offensive identity is mostly a continuum, with one natural type and one distinctive tail.** Thirteen different setups (sections 3, 4, 10 and 11) converge on this.
 
-- Against a strict random-data baseline (section 4), the best clustering (k=5) is only 1.1 SD above random. Roughly 1 in 10 structureless datasets with the same feature distributions clusters as well.
-- A looser baseline used in earlier versions of this report showed about 5 SD. It overstated the evidence, because it ignored that several themes have long tails: a few teams far out on tempo, wide-zone and QB run.
-- **What is solid is the positions, not the boundaries.**
-  - Theme scores are highly reliable within a season (0.72 to 0.96).
-  - Teams keep their cluster the next season 58% of the time, against 29% by chance.
-  - The distinctive groups (Shanahan wide-zone, QB-run/RPO, heavy power) are real tails of the distribution.
-  - The big spread and under-center groups are broad regions of one continuum.
+- **The one natural type is the wide-zone family:** SF, MIA, ATL and BAL every season, plus LAC 2024-25 (the Shanahan / Greg Roman lineage).
+  - Its members run with two backs, pistol, motion and outside runs, and pass with the same personnel plus more RB targets and in-breaking routes.
+  - It is the only group that beats the strict random-data baseline convincingly in its own section: the run game at 5.4 SD, stability 0.74 (section 10).
+- **The one distinctive tail is extreme no-huddle and RPO:** WAS 2024-25, PHI 2022-23, ARI 2022, IND 2023, LAC 2023. It's a handful of teams far out on a scale, not a type.
+- **Everything else varies continuously.** The whole-offense model is only 1.1 SD above the strict baseline at k=5, and roughly 1 in 10 structureless datasets with the same feature distributions clusters as well.
+  - The pass game and play-calling tendencies show no groups at all; a Gaussian mixture model prefers a single group for both.
+  - The k=5/k=6 clusters in sections 5-6 are a reasonable way to cut the continuum, not natural types.
+- **What is solid is each team's position, not the boundaries.**
+  - Theme scores are reliable within a season (0.72 to 0.96).
+  - Year-to-year moves line up with coaching and QB changes.
+  - That points to describing offenses with continuous profiles, flags and "most similar offenses" rather than hard cluster labels (see `NEXT_STEPS.md`).
+- **An early version of this report overstated the structure.** It showed ~5 SD against a Gaussian null, which ignored the themes' long tails. All decisions now use the copula null (section 3).
 
 ## 1. Grain: team-season, not week
 
@@ -192,6 +197,10 @@ Versus the previous feature set, 8 team-seasons changed cluster:
 | `feature_reliability.csv` | Split-half season reliability, single-game ICC, year-over-year r for features and themes |
 | `variant_comparison.csv`, `theme_consistency.csv` | The PCA / skew-fix / themes / binning comparison |
 | `team_trajectories.csv`, `cluster_transitions.csv` | Team x season labels; season-to-season transition counts |
+| `sections/section_features.csv` | Run, pass and tendency section features (all candidates) per team-season |
+| `sections/section_reliability.csv` | Split-half season reliability of every section candidate feature |
+| `sections/section_k_selection.csv` | Section models: silhouette, both baselines, bootstrap ARI, GMM-preferred k |
+| `sections/section_flags.csv` | Wide-zone family flag per team-season |
 
 ## 9. Limitations
 
@@ -201,3 +210,60 @@ Versus the previous feature set, 8 team-seasons changed cluster:
 - **Every theme gets equal weight.** Tempo is one feature but counts as much as the five-feature wide-zone package.
 - **No blocking-scheme tag.** nflverse doesn't carry one (zone vs gap). Outside-run share, average backs and pistol stand in as proxies.
 - **QB traits blend into identity.** The QB run game theme and quick-throw rate partly reflect the quarterback, not only the play caller.
+- **QB detection uses current roster position** (nflverse players file). A player listed at another position, such as Taysom Hill (TE), is treated as a non-QB rusher, and a player's position change across seasons isn't tracked.
+- **Receiver position is also current roster position,** so converted players (for example a WR who later moved to RB) are counted at their latest position.
+
+## 10. Section models: where the structure lives (`src/identity/sections.py`)
+
+Each part of the offense is clustered on its own features, all measured in neutral game script, z-scored within season, and screened for reliability (at least 0.6).
+QB-driven traits are left out of the run and pass sections. Results are in `sections/section_k_selection.csv`.
+
+**Run game** (non-QB designed runs only, so a mobile QB's keepers don't shape the profile).
+Features: outside run share, average TEs and average backs on runs, under center and pistol-of-gun on runs, motion on runs, 6+ OL on runs. All have season reliability 0.80 to 0.98.
+
+| k | SD above strict baseline | bootstrap ARI |
+|--:|--:|--:|
+| **2** | **5.4** (no random dataset matched) | **0.74** |
+| 3 | -0.5 | 0.46 |
+| 4-6 | 1.6 to 2.0 | 0.62 to 0.65 |
+
+- **k=2 is the wide-zone family (18 team-seasons) vs everyone else**, and a Gaussian mixture model agrees on k=2.
+  - Members: ATL22-25, BAL22-25, MIA22-25, SF22-25, LAC24-25.
+  - Their traits (raw): 1.53 backs on runs (league 1.15), 45% pistol among gun runs (20%), 57% outside runs (48%), 66% motion (53%), fewer TEs.
+- **Earlier trial versions also found a "QB run game" group** (PHI, WAS, BAL, CHI 2022-23, IND, ARI, BUF 2022-23). It disappears once designed QB runs are removed. It was a mobile-QB grouping, not a run-scheme grouping.
+- **Adding run rate over expected and RPO gave a third group** (shotgun RPO: KC, CIN, PHI, IND, WAS, BUF). Both features moved to the tendency section: run rate is a play-calling choice, and the RPO read is the QB's.
+
+**Pass game** (dropbacks). Features: under center, pistol-of-gun, average TEs/backs, empty, motion, play action, play-action boot rate, RB/TE target share, share of targets at 0-9 air yards, in-breaking and out routes.
+
+- **Dropped for reliability:** aDOT 0.48, 10-19 yard targets 0.49, and three route families: verticals 0.37, hitches 0.54, slants 0.59.
+- **Moved to tendency:** screens. Targets behind the line and flat/screen routes duplicate it (r 0.79-0.89).
+- **Pass concepts alone** (no formation/personnel) never beat the strict baseline at any k, and a Gaussian mixture model prefers a single group.
+- **With formation/personnel** there is one k=2 split (4.6 SD with Ward, 11 with k-means). It is the wide-zone family again, seen through its dropback personnel (1.39 backs on dropbacks vs 1.08, more motion and pistol, more RB targets and in-breakers). It is unstable (bootstrap 0.42) because borderline teams (BUF25, BAL24) flip in and out.
+- **Conclusion:** passing concepts vary continuously. There is no pass-game type beyond the wide-zone family's personnel signature.
+
+**Tendencies.** Features: early-down pass rate over expected, RPO rate, no-huddle, screen rate, personnel tell (pass rate from 3+ WR sets minus 2-WR-or-fewer sets), formation tell (gun pass rate minus under-center pass rate).
+
+- **Dropped for reliability, since too few neutral plays per team-season:** 1st-and-10 pass rate 0.56, 2nd-and-short 0.42, 3rd-and-short run rate 0.51.
+- **Dropped as redundant:** raw pass rate (r 0.94 with pass rate over expected).
+- **k-means never gets past 1.6 SD, and a Gaussian mixture model prefers a single group.** Ward's k=2 isolates the no-huddle/RPO tail (6 team-seasons, 2.7 to 5.7 SD depending on the draw).
+- The two tells are the most independent tendency features (correlation at most 0.30 with anything else). They're useful to describe, not to cluster on.
+
+## 11. Experiment log (everything tried, including what didn't work)
+
+"Strict" is the copula null. Numbers are at the k named. Scripts for trials not kept in `src/` are described here instead.
+
+| approach | result | verdict |
+|---|---|---|
+| v1: 11 features, k-means on 2 PCs (legacy) | silhouette 0.416 at k=6 vs 0.352 for 2-D Gaussian random data | 2-D inflation plus features chosen to maximize silhouette; replaced |
+| 19 features, PCA by parallel analysis, k=5 | 2.5 to 4.6 SD vs Gaussian (new vs original feature set), 1.2 SD vs strict | PCs hard to explain; replaced by themes |
+| 7 themes (current model), k=5 | 4.7 to 5.8 vs Gaussian, 1.1 to 1.9 vs strict (varies with random draws and feature set) | kept for naming and stability, but weak structure |
+| log-transform skewed features | 1.6 to 2.6 vs strict, less stable | the tails are the identity; rejected |
+| 3-level and 2-level binning | raw silhouette 0.35 but below its own baseline | binning creates fake structure; rejected |
+| 0-1 scaling, raw rates | dominated by high-spread features (motion 17% of weight, empty 0.7%); 1.8 vs strict | rejected |
+| 0-1 scaling, min-max | extreme teams compress everyone else; 1.2 vs strict | rejected |
+| 0-1 scaling, within-season percentile | 2.8 to 4.2 vs strict at k=5; splits under-center teams into 11-personnel/motion vs TE-heavy | competitive but loses the QB-run group, bootstrap 0.43, and amplifies noise in near-zero features; not adopted |
+| two-stage: per-area clusters, then cluster the label combinations | only formation/personnel has groups (k=2, 2.2 SD); 79 distinct combinations of 128, 51 unique; stage 2 less stable | rejected as a model; per-area descriptions kept as an idea |
+| run section with QB run share | 3.9 SD at k=3, but the extra group is mobile-QB teams | QB features removed by design |
+| run section, 7 features | 5.4 SD at k=2, the wide-zone family | **the one robust type** |
+| pass section | no groups beyond the wide-zone personnel signature | continuum |
+| tendency section | no groups; no-huddle/RPO tail only | continuum |

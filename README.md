@@ -1,61 +1,60 @@
 # NFL Offense Clustering
 
-Clusters NFL team-seasons on offensive tendency using nflverse data.
+Describes NFL offensive identity (what an offense tries to do, not how well it does it) for every team-season from 2022 to 2025, using nflverse data.
+It started as a clustering project. **The main finding is that offensive identity is mostly a continuum.**
+The one natural offensive type is the wide-zone family (SF, MIA, ATL, BAL, LAC 2024-25).
+Everything else is better described with continuous profiles than with cluster labels. Full write-up: [`output/identity/FINDINGS.md`](output/identity/FINDINGS.md).
+Plan for the next session: [`NEXT_STEPS.md`](NEXT_STEPS.md).
 
 ## Data
 
-- Play-by-play: `nfl_data_py.import_pbp_data` (nflfastR)
-- Play-action charting: `nfl_data_py.import_ftn_data` (FTN, 2022+ only — this
-  bounds the season range below)
+nflverse release files (fetched by `src/identity/fetch_data.sh` into `data/raw/`, which is not committed):
 
-nflverse does not carry a run-blocking scheme (zone/power/gap) tag; that's
-PFF charting-level detail. `run_location`/`run_gap` give direction and a
-coarse gap (end/tackle/guard), which is what's used here as a scheme proxy.
+| source | used for |
+|---|---|
+| play-by-play (nflfastR) | down/distance, xpass, run location/gap, air yards, receivers |
+| FTN charting (2022+) | play action, motion, RPO, screens, no-huddle, QB location, QB out of pocket, sneaks, backfield count |
+| participation | personnel, time to throw, targeted route |
+| players | roster position (QB detection, receiver position) |
 
-## Features (v1)
+FTN charting starts in 2022, which sets the season range. All features are measured in **neutral game script** (`src/neutral_script.py`: win probability 20-80%, outside the last 2 minutes of each half), regular season only.
 
-Grain: team-season, 2022-2025, playcalled rushes only (scrambles/kneels
-excluded). Restricted to **neutral game script** (`src/neutral_script.py`:
-win probability 20-80%, outside the final 2 minutes of either half) so the
-numbers reflect scheme preference rather than score/clock-driven play
-calling. This roughly halves the play sample per team-season (~260 rushes,
-~360 dropbacks on average) but is still plenty for these features.
+## Layout
 
-- `pct_end`, `pct_tackle`, `pct_guard`, `pct_middle`: share of rush attempts
-  by gap bucket (sums to 1; `pct_middle` held out of clustering to avoid
-  compositional collinearity)
-- `pa_rate`: play-action rate as a share of dropbacks (FTN charting)
+```
+src/neutral_script.py                 neutral game-script filter (shared)
+src/identity/fetch_data.sh            download nflverse parquet files -> data/raw/
+src/identity/build_identity_features.py  play loading + whole-offense features -> data/identity_features.csv
+src/identity/reliability.py           split-half / per-game / year-over-year reliability of features and themes
+src/identity/themes.py                the 7 theme composites (definitions + scoring)
+src/identity/cluster_identity.py      whole-offense model: k-means on themes, strict (copula) null, k=5/k=6 labels
+src/identity/sections.py              run / pass / tendency section models; wide-zone family flag
+src/identity/compare_variants.py      PCA vs skew-fix vs themes vs binning comparison
+src/identity/build_scatter.py         interactive scatter (output/identity/identity_scatter.html)
+src/templates/identity_scatter_template.html
+output/identity/                      all results (CSV) + FINDINGS.md
+output/identity/sections/             section model results
+legacy/                               frozen v1 scheme clustering (see legacy/README.md)
+```
 
-## Usage
+## Run
 
 ```
 pip install -r requirements.txt
-python3 src/build_features.py   # -> data/team_season_features.csv
-python3 src/cluster.py          # -> output/team_season_clusters.csv
-python3 src/build_viz.py        # -> output/cluster_viz.html (interactive)
+bash src/identity/fetch_data.sh
+python3 src/identity/build_identity_features.py   # features + data/raw/neutral_plays.parquet
+python3 src/identity/reliability.py               # needs neutral_plays.parquet
+python3 src/identity/cluster_identity.py          # ~1 min
+python3 src/identity/build_scatter.py
+python3 src/identity/sections.py                  # ~1 min
+python3 src/identity/compare_variants.py          # optional, ~3 min
 ```
 
-## Notes
+## Method conventions (keep these when extending)
 
-- k=4 (KMeans) is the current default; silhouette scores are ~0.21-0.24
-  across k=2-8, i.e. weak-to-moderate separation with just these 5 features.
-  Expected to sharpen as more features (personnel, motion, formation, PA by
-  down/distance, RPO rate) are added.
-- Some teams cluster stably across seasons (SF, DET); others don't (MIA, NE),
-  plausibly tracking coaching/scheme changes rather than noise.
-
-## Offensive identity model (`src/identity/`)
-
-Broader successor to the scheme clustering above. It uses 19 reliability-screened tendency features, z-scores them within season,
-and collapses them into 7 named themes (`src/identity/themes.py`). It clusters on the themes with k-means and chooses k against a null-model silhouette.
-Results and all stats: `output/identity/FINDINGS.md`.
-
-```
-pip install -r requirements.txt
-bash src/identity/fetch_data.sh                   # nflverse parquet -> data/raw/
-python3 src/identity/build_identity_features.py   # -> data/identity_features.csv
-python3 src/identity/reliability.py               # -> output/identity/feature_reliability.csv
-python3 src/identity/cluster_identity.py          # -> output/identity/*.csv
-python3 src/identity/build_scatter.py             # -> output/identity/identity_scatter.html
-python3 src/identity/compare_variants.py          # optional: PCA / skew-fix / themes / binning comparison
-```
+- **Grain is team-season.** A single game's features are about 83% noise (median per-game ICC 0.17).
+- **Every feature is z-scored within season** to remove league-wide drift.
+- **Features must pass a season reliability screen** (split-half, Spearman-Brown corrected, at least 0.6).
+- **Tendencies only.** No efficiency stats (EPA, success rate) as clustering inputs.
+- **QB-driven traits stay out of the run and pass sections.** Designed QB runs, scrambles and RPO reads belong in a future "QB's job" section.
+- **Structure is tested against the copula null**: structureless data with the same marginal distributions and rank correlations. The Gaussian null ignores the features' long tails and overstates structure. Report both, and decide on the copula null.

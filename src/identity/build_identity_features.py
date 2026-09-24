@@ -67,7 +67,7 @@ PBP_COLS = [
     "qb_kneel", "qb_spike", "xpass", "wp", "half_seconds_remaining",
     "air_yards", "complete_pass", "incomplete_pass", "pass_location",
     "run_location", "run_gap", "rusher_player_id", "passer_player_id",
-    "receiver_player_id",
+    "receiver_player_id", "ydstogo",
 ]
 FTN_COLS = [
     "nflverse_game_id", "nflverse_play_id", "is_motion", "is_no_huddle",
@@ -76,7 +76,7 @@ FTN_COLS = [
 ]
 PART_COLS = [
     "nflverse_game_id", "play_id", "offense_personnel",
-    "time_to_throw",
+    "time_to_throw", "route",
 ]
 
 

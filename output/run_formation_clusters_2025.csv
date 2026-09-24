@@ -1,33 +1,33 @@
 team,cluster_name,x,y,outside,inside,uc,pistol,rush_n,sil
-BUF,Under center,-10.4,52.2,44.8,55.2,47.8,2.0,288,0.1
-CHI,Under center,0.9,47.3,50.5,49.5,52.7,2.3,319,0.59
-DET,Under center,9.2,45.9,54.6,45.4,54.1,0.5,260,0.41
-LA,Under center,-9.2,39.7,45.4,54.6,60.3,0.1,284,0.47
-MIN,Under center,4.4,49.9,52.2,47.8,50.1,0.9,228,0.4
-SEA,Under center,0.0,44.3,50.0,50.0,55.7,3.6,266,0.62
-SF,Under center,-9.4,51.6,45.3,54.7,48.4,2.6,267,0.22
-ARI,"Gun, outside lean",15.9,62.2,58.0,42.0,37.8,3.1,176,0.38
-BAL,"Gun, outside lean",6.3,63.8,53.1,46.9,36.2,7.3,271,0.76
-DEN,"Gun, outside lean",7.9,65.1,54.0,46.0,34.9,5.1,291,0.73
-GB,"Gun, outside lean",0.3,60.9,50.2,49.8,39.1,7.0,303,0.51
-PIT,"Gun, outside lean",6.8,64.8,53.4,46.6,35.2,2.4,266,0.75
-TEN,"Gun, outside lean",-1.0,63.7,49.5,50.5,36.3,2.6,200,0.47
-ATL,"Gun, stretch outside",27.6,78.7,63.8,36.2,21.3,34.8,279,0.58
-MIA,"Gun, stretch outside",26.3,69.5,63.1,36.9,30.5,20.2,198,0.43
-KC,"Heavy gun, balanced runs",-13.9,78.2,43.0,57.0,21.8,3.5,244,0.16
-NYG,"Heavy gun, balanced runs",-1.4,72.9,49.3,50.7,27.1,7.8,276,0.21
-PHI,"Heavy gun, balanced runs",-3.9,76.8,48.0,52.0,23.2,6.5,281,0.57
-WAS,"Heavy gun, balanced runs",-3.4,85.2,48.3,51.7,14.8,19.7,236,0.5
-CAR,"Gun, inside lean",-21.7,62.6,39.1,60.9,37.4,9.5,276,0.47
-CLE,"Gun, inside lean",-17.5,59.5,41.2,58.8,40.5,2.8,257,0.65
-DAL,"Gun, inside lean",-13.5,58.8,43.2,56.8,41.2,2.5,259,0.57
-HOU,"Gun, inside lean",-26.2,60.3,36.9,63.1,39.7,0.0,282,0.41
-JAX,"Gun, inside lean",-9.6,61.6,45.2,54.8,38.4,3.0,239,0.36
-LAC,"Gun, inside lean",-11.6,67.3,44.2,55.8,32.7,4.1,224,0.29
-LV,"Gun, inside lean",-31.2,58.7,34.4,65.6,41.3,4.2,218,0.28
-NE,"Gun, inside lean",-13.9,56.3,43.1,56.9,43.7,0.1,274,0.41
-NYJ,"Gun, inside lean",-12.0,66.4,44.0,56.0,33.6,5.2,225,0.39
-TB,"Gun, inside lean",-14.1,61.2,43.0,57.0,38.8,4.3,291,0.61
-CIN,"Heavy gun, heavy inside",-33.0,79.4,33.5,66.5,20.6,3.6,206,0.57
-IND,"Heavy gun, heavy inside",-27.8,71.8,36.1,63.9,28.2,4.5,255,0.55
-NO,"Heavy gun, heavy inside",-22.7,74.0,38.7,61.3,26.0,4.0,256,0.51
+CHI,"Under center, outside",1.3,24.4,50.7,49.3,75.6,2.9,307,0.51
+DET,"Under center, outside",9.7,19.2,54.8,45.2,80.8,0.8,260,0.59
+MIN,"Under center, outside",4.5,21.6,52.3,47.7,78.4,1.8,222,0.68
+SEA,"Under center, outside",0.4,19.2,50.2,49.8,80.8,4.2,265,0.46
+BUF,"Under center, inside",-10.4,21.6,44.8,55.2,78.4,1.2,259,0.56
+LA,"Under center, inside",-8.5,8.5,45.7,54.3,91.5,0.0,282,0.19
+NE,"Under center, inside",-10.8,21.6,44.6,55.4,78.4,0.4,260,0.57
+SF,"Under center, inside",-7.1,27.4,46.4,53.6,72.6,4.4,252,0.2
+ARI,"Mixed, outside lean",16.9,31.9,58.4,41.6,68.1,3.6,166,0.03
+BAL,"Mixed, outside lean",1.6,41.4,50.8,49.2,58.6,12.7,251,0.58
+DEN,"Mixed, outside lean",8.6,34.2,54.3,45.7,65.8,6.7,269,0.25
+GB,"Mixed, outside lean",-0.3,46.0,49.8,50.2,54.0,10.0,291,0.36
+PIT,"Mixed, outside lean",6.8,40.2,53.4,46.6,59.8,3.8,266,0.55
+TEN,"Mixed, outside lean",-2.0,41.3,49.0,51.0,58.7,4.1,196,0.41
+CAR,"Mixed, inside lean",-23.1,39.1,38.5,61.5,60.9,14.2,274,0.44
+CLE,"Mixed, inside lean",-17.0,37.0,41.5,58.5,63.0,3.5,254,0.58
+DAL,"Mixed, inside lean",-12.5,37.3,43.8,56.2,62.7,3.9,256,0.48
+HOU,"Mixed, inside lean",-25.5,34.3,37.2,62.8,65.7,0.0,274,0.5
+JAX,"Mixed, inside lean",-9.1,32.7,45.5,54.5,67.3,5.0,220,0.03
+LAC,"Mixed, inside lean",-11.6,42.3,44.2,55.8,57.7,7.9,215,0.36
+LV,"Mixed, inside lean",-30.1,31.1,34.9,65.1,68.9,4.3,209,0.37
+TB,"Mixed, inside lean",-14.9,33.9,42.6,57.4,66.1,7.3,289,0.44
+CIN,"Gun lean, heavy inside",-31.7,61.3,34.2,65.8,38.7,5.5,199,0.55
+IND,"Gun lean, heavy inside",-26.8,60.6,36.6,63.4,39.4,7.3,247,0.6
+KC,"Gun lean, heavy inside",-14.0,55.8,43.0,57.0,44.2,5.4,242,0.15
+NO,"Gun lean, heavy inside",-23.5,54.9,38.2,61.8,45.1,8.8,204,0.58
+NYJ,"Gun lean, heavy inside",-17.3,51.5,41.3,58.7,48.5,8.2,196,0.34
+NYG,"Gun lean, balanced direction",-0.4,60.5,49.8,50.2,39.5,16.1,249,0.68
+PHI,"Gun lean, balanced direction",-1.2,60.7,49.4,50.6,39.3,12.1,247,0.7
+WAS,"Gun lean, balanced direction",-9.9,69.5,45.1,54.9,30.5,32.4,213,0.34
+ATL,"Gun lean, stretch outside",28.5,69.6,64.3,35.7,30.4,59.8,277,0.68
+MIA,"Gun lean, stretch outside",26.3,58.6,63.1,36.9,41.4,31.3,198,0.64

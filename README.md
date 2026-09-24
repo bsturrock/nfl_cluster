@@ -33,6 +33,8 @@ pip install -r requirements.txt
 python3 src/build_features.py   # -> data/team_season_features.csv
 python3 src/cluster.py          # -> output/team_season_clusters.csv
 python3 src/build_viz.py        # -> output/cluster_viz.html (interactive)
+python3 src/build_run_features.py          # -> data/run_play_features.csv (designed non-QB runs)
+python3 src/build_run_formation_scatter.py # -> output/run_formation_scatter_2025.html
 ```
 
 ## Notes

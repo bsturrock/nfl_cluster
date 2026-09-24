@@ -1,12 +1,14 @@
-"""Scatter of 2025 offenses: outside-minus-inside run share (x) vs
-shotgun+pistol snap share (y). Both from the neutral-script feature files.
+"""Scatter of 2025 offenses on designed non-QB runs only (see
+build_run_features.py): outside-minus-inside run share (x) vs share of those
+runs snapped from shotgun or pistol (y).
 
-- outside = end + tackle runs, inside = guard + middle runs (share of rushes)
+- outside = end + tackle runs, inside = guard + middle runs
 - shotgun share counts pistol as shotgun; under center = 100 - y
 
 Teams are clustered on just these two dimensions (standardized, KMeans).
-k=6 is best on silhouette / Calinski-Harabasz / Davies-Bouldin across
-k=2-8, and Ward linkage gives the identical partition.
+k=6 and k=7 are tied on silhouette (0.453 / 0.451); k=7 wins on
+Davies-Bouldin and its extra split (under-center teams into inside vs
+outside runners) is the football-meaningful one, so k=7.
 
 Output: output/run_formation_scatter_2025.html,
         output/run_formation_clusters_2025.csv
@@ -22,21 +24,23 @@ from sklearn.metrics import (adjusted_rand_score, calinski_harabasz_score,
 from sklearn.preprocessing import StandardScaler
 
 SEASON = "2025"
-K = 6
+K = 7
 K_RANGE = range(2, 9)
 N_BOOT = 200
+FEATURES_PATH = "data/run_play_features.csv"  # from build_run_features.py
 OUT_PATH = "output/run_formation_scatter_2025.html"
 CSV_PATH = "output/run_formation_clusters_2025.csv"
 
 # Clusters are named by a member team rather than by KMeans index, so a
 # relabeling between runs can't silently swap names. Order = legend order.
 CLUSTER_NAMES = [
-    ("DET", "Under center"),
-    ("BAL", "Gun, outside lean"),
-    ("ATL", "Gun, stretch outside"),
-    ("WAS", "Heavy gun, balanced runs"),
-    ("CLE", "Gun, inside lean"),
-    ("CIN", "Heavy gun, heavy inside"),
+    ("DET", "Under center, outside"),
+    ("SF", "Under center, inside"),
+    ("BAL", "Mixed, outside lean"),
+    ("CLE", "Mixed, inside lean"),
+    ("CIN", "Gun lean, heavy inside"),
+    ("WAS", "Gun lean, balanced direction"),
+    ("ATL", "Gun lean, stretch outside"),
 ]
 
 
@@ -46,23 +50,18 @@ def load(path, team_col):
 
 
 def main():
-    gaps = load("data/team_season_features.csv", "team")
-    form = load("data/formation_personnel_features.csv", "posteam")
-
     points = []
-    for team in sorted(gaps):
-        g, f = gaps[team], form[team]
-        outside = float(g["pct_end"]) + float(g["pct_tackle"])
-        inside = float(g["pct_guard"]) + float(g["pct_middle"])
+    for team, r in sorted(load(FEATURES_PATH, "team").items()):
+        outside, inside = float(r["pct_outside"]), float(r["pct_inside"])
         points.append({
             "team": team,
             "x": round(100 * (outside - inside), 1),
-            "y": round(100 * float(f["pct_shotgun_or_pistol"]), 1),
+            "y": round(100 * float(r["pct_shotgun_or_pistol"]), 1),
             "outside": round(100 * outside, 1),
             "inside": round(100 * inside, 1),
-            "uc": round(100 * float(f["pct_under_center"]), 1),
-            "pistol": round(100 * float(f["pct_pistol"]), 1),
-            "rush_n": int(g["rush_n"]),
+            "uc": round(100 * float(r["pct_under_center"]), 1),
+            "pistol": round(100 * float(r["pct_pistol"]), 1),
+            "rush_n": int(r["run_n"]),
         })
 
     X = StandardScaler().fit_transform([[p["x"], p["y"]] for p in points])
@@ -147,7 +146,7 @@ TEMPLATE = r"""<!doctype html>
   --grid: #e6e5e1;
   --axis: #b9b8b2;
   --series-1: #2a78d6;
-  --c0: #2a78d6; --c1: #eb6834; --c2: #1baf7a; --c3: #eda100; --c4: #e87ba4; --c5: #008300;
+  --c0: #2a78d6; --c1: #eb6834; --c2: #1baf7a; --c3: #eda100; --c4: #e87ba4; --c5: #008300; --c6: #4a3aa7;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -159,7 +158,7 @@ TEMPLATE = r"""<!doctype html>
     --grid: #2e2e2c;
     --axis: #55544f;
     --series-1: #3987e5;
-    --c0: #3987e5; --c1: #d95926; --c2: #199e70; --c3: #c98500; --c4: #d55181; --c5: #008300;
+    --c0: #3987e5; --c1: #d95926; --c2: #199e70; --c3: #c98500; --c4: #d55181; --c5: #008300; --c6: #9085e9;
   }
 }
 :root[data-theme="dark"] {
@@ -171,7 +170,7 @@ TEMPLATE = r"""<!doctype html>
   --grid: #2e2e2c;
   --axis: #55544f;
   --series-1: #3987e5;
---c0: #3987e5; --c1: #d95926; --c2: #199e70; --c3: #c98500; --c4: #d55181; --c5: #008300;
+--c0: #3987e5; --c1: #d95926; --c2: #199e70; --c3: #c98500; --c4: #d55181; --c5: #008300; --c6: #9085e9;
 }
 body { margin: 0; background: var(--surface-1); color: var(--text-primary);
   font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -215,11 +214,11 @@ tr.pick td { font-weight: 700; }
 </head>
 <body>
 <main>
-  <h1>Run direction vs snap formation, 2025</h1>
-  <p class="sub">Each mark is a 2025 offense, colored and shaped by cluster (KMeans on these two dimensions only, standardized). Neutral game script only (WP 20-80%, outside last 2 min of each half). Dashed rings are cluster centers.</p>
+  <h1>Run direction vs run formation, 2025</h1>
+  <p class="sub">Designed non-QB runs only (no scrambles, QB runs, kneels or 2-pt tries). Each mark is a 2025 offense, colored and shaped by cluster (KMeans on these two dimensions only, standardized). Neutral game script only (WP 20-80%, outside last 2 min of each half). Dashed rings are cluster centers.</p>
   <div class="legend" id="legend"></div>
   <svg id="chart" viewBox="0 0 900 620" role="img" aria-label="Scatter of 32 NFL offenses"></svg>
-  <p class="note">X: outside runs (end + tackle gaps) minus inside runs (guard + middle), as a share of designed rushes, in percentage points. Y: share of snaps from shotgun or pistol; under center = 100 minus Y. Dashed lines are league averages.</p>
+  <p class="note">X: outside runs (end + tackle gaps) minus inside runs (guard + middle), as a share of designed non-QB runs, in percentage points. Y: share of those runs snapped from shotgun or pistol; under center = 100 minus Y. Dashed lines are league averages.</p>
   <div class="stats" id="stats"></div>
   <h2>Clusters</h2>
   <table id="ctbl"></table>
@@ -244,6 +243,7 @@ const shape = (c, r) => {
     `M0,${-a}L${a},0L0,${a}L${-a},0Z`,
     `M0,${a}L${a*.95},${-a*.6}H${-a*.95}Z`,
     `M${-r*.35},${-r}H${r*.35}V${-r*.35}H${r}V${r*.35}H${r*.35}V${r}H${-r*.35}V${r*.35}H${-r}V${-r*.35}H${-r*.35}Z`,
+    `M${-r},${-r*.55}L${-r*.55},${-r}L0,${-r*.45}L${r*.55},${-r}L${r},${-r*.55}L${r*.45},0L${r},${r*.55}L${r*.55},${r}L0,${r*.45}L${-r*.55},${r}L${-r},${r*.55}L${-r*.45},0Z`,
   ][c];
 };
 const W = 900, H = 620, m = {t: 20, r: 24, b: 56, l: 64};
@@ -280,7 +280,7 @@ el("line", {x1: m.l, x2: m.l + pw, y1: sy(my), y2: sy(my), class: "zero"});
 el("text", {x: m.l + pw / 2, y: H - 12, "text-anchor": "middle", class: "axis-title"}, svg,
    "Outside minus inside run share (pp)");
 el("text", {transform: `translate(16 ${m.t + ph / 2}) rotate(-90)`, "text-anchor": "middle", class: "axis-title"}, svg,
-   "Shotgun + pistol snap share");
+   "Shotgun + pistol share of runs");
 el("text", {x: m.l + 8, y: m.t + 14, class: "quad"}, svg, "Gun / inside");
 el("text", {x: m.l + pw - 8, y: m.t + 14, "text-anchor": "end", class: "quad"}, svg, "Gun / outside");
 el("text", {x: m.l + 8, y: m.t + ph - 8, class: "quad"}, svg, "Under center / inside");
@@ -315,7 +315,7 @@ data.forEach(d => {
     dot.classList.add("on");
     tip.innerHTML = `<b>${d.team}</b> <span>${d.cluster_name}</span><br><span>Out - in:</span> ${sign(d.x)} pp (${d.outside}% / ${d.inside}%)` +
       `<br><span>Shotgun+pistol:</span> ${d.y}% (pistol ${d.pistol}%)<br><span>Under center:</span> ${d.uc}%` +
-      `<br><span>Designed rushes:</span> ${d.rush_n}<br><span>Silhouette:</span> ${d.sil}`;
+      `<br><span>Designed runs:</span> ${d.rush_n}<br><span>Silhouette:</span> ${d.sil}`;
     tip.style.display = "block";
     const tx = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
     tip.style.left = tx + "px"; tip.style.top = (e.clientY + 14) + "px";
@@ -337,7 +337,7 @@ data.forEach(d => {
 
 const rows = [...data].sort((a, b) => b.x - a.x);
 document.getElementById("tbl").innerHTML =
-  "<tr><th>Team</th><th>Cluster</th><th>Out - in (pp)</th><th>Outside %</th><th>Inside %</th><th>Shotgun+pistol %</th><th>Pistol %</th><th>Under center %</th><th>Rushes</th></tr>" +
+  "<tr><th>Team</th><th>Cluster</th><th>Out - in (pp)</th><th>Outside %</th><th>Inside %</th><th>Shotgun+pistol %</th><th>Pistol %</th><th>Under center %</th><th>Runs</th></tr>" +
   rows.map(d => `<tr><td>${d.team}</td><td>${d.cluster_name}</td><td>${sign(d.x)}</td><td>${d.outside}</td><td>${d.inside}</td><td>${d.y}</td><td>${d.pistol}</td><td>${d.uc}</td><td>${d.rush_n}</td></tr>`).join("");
 </script>
 </body>

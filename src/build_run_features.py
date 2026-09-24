@@ -13,9 +13,15 @@ Features:
     with a direction tag
   - pct_shotgun_or_pistol / pct_under_center / pct_pistol: over the same
     runs with a formation tag (formation of the run snaps, not all snaps)
+  - avg_rb / avg_fb / avg_te: mean players on the field per run, from
+    offense_personnel (roster positions). avg_rb counts RB + FB, matching
+    standard personnel-grouping convention (21 = 2 backs incl. a FB). Extra
+    OL are listed as T/G, so jumbo linemen are not counted as TEs.
 
 Output: data/run_play_features.csv
 """
+import re
+
 import nfl_data_py as nfl
 import pandas as pd
 
@@ -23,6 +29,14 @@ from neutral_script import filter_neutral_script
 
 SEASONS = [2025]
 OUT_PATH = "data/run_play_features.csv"
+
+
+def position_count(personnel, pos):
+    """Players at `pos` in an offense_personnel string like '1 C, 1 FB, 2 G, 1 QB, 1 RB, 2 T, 2 TE, 1 WR'."""
+    if pd.isna(personnel):
+        return pd.NA
+    m = re.search(rf"(\d+) {pos}\b", personnel)
+    return int(m.group(1)) if m else 0
 
 
 def main():
@@ -60,11 +74,20 @@ def main():
         "form_n": form.groupby(keys).size(),
     })
 
-    out = side.join(out_form)
+    pers = runs[runs["offense_personnel"].notna()].copy()
+    for pos in ["RB", "FB", "TE"]:
+        pers[pos] = pers["offense_personnel"].apply(position_count, pos=pos)
+    pers["backs"] = pers["RB"] + pers["FB"]
+    out_pers = pers.groupby(keys).agg(
+        avg_rb=("backs", "mean"), avg_fb=("FB", "mean"), avg_te=("TE", "mean"), pers_n=("TE", "size"),
+    )
+
+    out = side.join(out_form).join(out_pers)
     out["run_n"] = runs.groupby(keys).size()
     out = out.reset_index().rename(columns={"posteam": "team"})
     out = out[["season", "team", "run_n", "dir_n", "form_n", "pct_outside", "pct_inside",
-               "pct_shotgun_or_pistol", "pct_pistol", "pct_under_center"]]
+               "pct_shotgun_or_pistol", "pct_pistol", "pct_under_center",
+               "pers_n", "avg_rb", "avg_fb", "avg_te"]]
     out.to_csv(OUT_PATH, index=False)
     print(f"wrote {len(out)} rows to {OUT_PATH}")
     print(out.describe().round(3))

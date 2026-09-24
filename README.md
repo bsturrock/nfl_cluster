@@ -43,3 +43,17 @@ python3 src/build_viz.py        # -> output/cluster_viz.html (interactive)
   down/distance, RPO rate) are added.
 - Some teams cluster stably across seasons (SF, DET); others don't (MIA, NE),
   plausibly tracking coaching/scheme changes rather than noise.
+
+## Offensive identity model (`src/identity/`)
+
+Broader successor to the scheme clustering above. It uses 19 reliability-screened tendency features,
+z-scores them within season, keeps PCs by parallel analysis, and chooses k against a null-model silhouette.
+Results and all stats: `output/identity/FINDINGS.md`.
+
+```
+pip install -r requirements.txt
+bash src/identity/fetch_data.sh                   # nflverse parquet -> data/raw/
+python3 src/identity/build_identity_features.py   # -> data/identity_features.csv
+python3 src/identity/reliability.py               # -> output/identity/feature_reliability.csv
+python3 src/identity/cluster_identity.py          # -> output/identity/*.csv
+```

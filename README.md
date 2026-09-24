@@ -35,7 +35,7 @@ python3 src/cluster.py          # -> output/team_season_clusters.csv
 python3 src/build_viz.py        # -> output/cluster_viz.html (interactive)
 python3 src/build_run_features.py          # -> data/run_play_features.csv (designed non-QB runs)
 python3 src/build_run_formation_scatter.py # -> output/run_formation_scatter_2025.html
-python3 src/build_personnel_scatter.py     # -> output/personnel_scatter_2025.html
+python3 src/build_colored_scatters.py      # -> output/{personnel,te_motion}_scatter_2025.html
 ```
 
 ## Notes

@@ -17,6 +17,10 @@ Features:
     offense_personnel (roster positions). avg_rb counts RB + FB, matching
     standard personnel-grouping convention (21 = 2 backs incl. a FB). Extra
     OL are listed as T/G, so jumbo linemen are not counted as TEs.
+  - te_minus_backs = avg_te - avg_rb: TE vs FB as the extra-blocker choice
+    (equals PC1 of the standardized pair, 83% of variance)
+  - heavy = avg_te + avg_rb: non-WR skill players per run (the other 17%)
+  - motion_rate: share of runs with pre-snap motion (FTN charting)
 
 Output: data/run_play_features.csv
 """
@@ -41,6 +45,7 @@ def position_count(personnel, pos):
 
 def main():
     pbp = nfl.import_pbp_data(SEASONS, downcast=True, cache=False)
+    ftn = nfl.import_ftn_data(SEASONS)
     rosters = nfl.import_seasonal_rosters(SEASONS)
     qb_ids = set(rosters.loc[rosters["position"] == "QB", "player_id"])
 
@@ -82,12 +87,24 @@ def main():
         avg_rb=("backs", "mean"), avg_fb=("FB", "mean"), avg_te=("TE", "mean"), pers_n=("TE", "size"),
     )
 
-    out = side.join(out_form).join(out_pers)
+    out_pers["te_minus_backs"] = out_pers["avg_te"] - out_pers["avg_rb"]
+    out_pers["heavy"] = out_pers["avg_te"] + out_pers["avg_rb"]
+
+    charted = runs.merge(
+        ftn[["nflverse_game_id", "nflverse_play_id", "is_motion"]],
+        left_on=["game_id", "play_id"], right_on=["nflverse_game_id", "nflverse_play_id"], how="inner",
+    )
+    out_motion = charted.groupby(keys).agg(
+        motion_rate=("is_motion", "mean"), ftn_n=("is_motion", "size"),
+    )
+
+    out = side.join(out_form).join(out_pers).join(out_motion)
     out["run_n"] = runs.groupby(keys).size()
     out = out.reset_index().rename(columns={"posteam": "team"})
     out = out[["season", "team", "run_n", "dir_n", "form_n", "pct_outside", "pct_inside",
                "pct_shotgun_or_pistol", "pct_pistol", "pct_under_center",
-               "pers_n", "avg_rb", "avg_fb", "avg_te"]]
+               "pers_n", "avg_rb", "avg_fb", "avg_te", "te_minus_backs", "heavy",
+               "ftn_n", "motion_rate"]]
     out.to_csv(OUT_PATH, index=False)
     print(f"wrote {len(out)} rows to {OUT_PATH}")
     print(out.describe().round(3))

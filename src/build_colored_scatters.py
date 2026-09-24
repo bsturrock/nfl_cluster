@@ -1,9 +1,13 @@
-"""Scatter of 2025 offenses: avg backs (RB + FB) vs avg TEs on the field,
-designed non-QB runs only (same play filter as build_run_features.py).
-Marks are colored by the run direction x formation cluster from
-build_run_formation_scatter.py, to compare personnel against that identity.
+"""Scatters of 2025 offenses on designed non-QB runs (same play filter as
+build_run_features.py), with marks colored by the run direction x formation
+cluster from build_run_formation_scatter.py, to compare other features
+against that identity.
 
-Output: output/personnel_scatter_2025.html
+Charts (see CHARTS):
+  - personnel: avg backs (RB + FB) vs avg TEs per run
+  - te_motion: avg TEs minus avg backs vs pre-snap motion rate on runs
+
+Output: output/<chart>_scatter_2025.html
 """
 import csv
 import json
@@ -13,33 +17,71 @@ from build_run_formation_scatter import CLUSTER_NAMES
 SEASON = "2025"
 FEATURES_PATH = "data/run_play_features.csv"
 CLUSTERS_PATH = "output/run_formation_clusters_2025.csv"
-OUT_PATH = "output/personnel_scatter_2025.html"
+
+# fmt keys (rendered in the page): dec = 2dp, sdec = signed 2dp, pct = x100 with %
+PLAY_FILTER = ("Designed non-QB runs only (no scrambles, QB runs, kneels or 2-pt tries), "
+               "neutral game script (WP 20-80%, outside last 2 min of each half). "
+               "Color and shape = run direction x formation cluster.")
+TIP_COMMON = [["Designed runs", "run_n", "int"]]
+CHARTS = {
+    "personnel": {
+        "page_title": "Run Personnel 2025",
+        "title": "Run personnel, 2025",
+        "lead": "Average backs and tight ends on the field per run.",
+        "x": "avg_rb", "y": "avg_te", "x_fmt": "dec", "y_fmt": "dec", "x_step": 0.1, "y_step": 0.1,
+        "x_title": "Avg backs (RB + FB) per run",
+        "y_title": "Avg TEs per run",
+        "quads": ["Fewer backs / more TEs", "More backs / more TEs", "Fewer backs / fewer TEs", "More backs / fewer TEs"],
+        "note": ("X: average RB + FB per run (a 21-personnel snap counts 2). Y: average TE per run. Positions are "
+                 "roster positions, so an extra offensive lineman reporting eligible is not counted as a TE, and a "
+                 "TE lined up at fullback counts as a TE. Dashed lines are league averages."),
+        "fields": [["Avg backs", "avg_rb", "dec"], ["Avg FB", "avg_fb", "dec"], ["Avg TEs", "avg_te", "dec"]],
+    },
+    "te_motion": {
+        "page_title": "TE Tilt vs Motion",
+        "title": "TE-vs-back tilt vs motion rate on runs, 2025",
+        "lead": "Whether the extra blocker is a TE or a back, against how often runs use pre-snap motion.",
+        "x": "te_minus_backs", "y": "motion_rate", "x_fmt": "sdec", "y_fmt": "pct", "x_step": 0.2, "y_step": 0.05,
+        "x_title": "Avg TEs minus avg backs per run",
+        "y_title": "Runs with pre-snap motion",
+        "quads": ["Back-heavy / more motion", "TE-heavy / more motion", "Back-heavy / less motion", "TE-heavy / less motion"],
+        "note": ("X: average TEs minus average backs (RB + FB) per run; negative = fullback-leaning, positive = "
+                 "TE-leaning. Equals the first principal component of the two (83% of their variance). "
+                 "Y: share of runs with pre-snap motion (FTN charting, all runs charted). Dashed lines are league averages."),
+        "fields": [["TE - backs", "te_minus_backs", "sdec"], ["Avg TEs", "avg_te", "dec"],
+                   ["Avg backs", "avg_rb", "dec"], ["Motion", "motion_rate", "pct"]],
+    },
+}
+
+
+def build(name, cfg, rows, cluster_of, order):
+    fields = {cfg["x"], cfg["y"], "run_n"} | {f for _, f, _ in cfg["fields"]}
+    points = [{
+        "team": r["team"],
+        "cluster": order[cluster_of[r["team"]]],
+        "cluster_name": cluster_of[r["team"]],
+        **{f: round(float(r[f]), 4) for f in fields},
+    } for r in rows]
+    for p in points:
+        p["x"], p["y"] = p[cfg["x"]], p[cfg["y"]]
+
+    config = {**cfg, "sub": f'{cfg["lead"]} {PLAY_FILTER}', "tip": cfg["fields"] + TIP_COMMON}
+    payload = {"points": points, "clusters": [n for _, n in CLUSTER_NAMES], "config": config}
+    out_path = f"output/{name}_scatter_{SEASON}.html"
+    html = TEMPLATE.replace("__PAGE_TITLE__", cfg["page_title"]).replace("__DATA_JSON__", json.dumps(payload))
+    with open(out_path, "w") as out:
+        out.write(html)
+    print(f"wrote {out_path} ({len(points)} teams)")
 
 
 def main():
     with open(CLUSTERS_PATH) as f:
         cluster_of = {r["team"]: r["cluster_name"] for r in csv.DictReader(f)}
     order = {name: i for i, (_, name) in enumerate(CLUSTER_NAMES)}
-
-    points = []
     with open(FEATURES_PATH) as f:
-        for r in csv.DictReader(f):
-            if r["season"] != SEASON:
-                continue
-            points.append({
-                "team": r["team"],
-                "x": round(float(r["avg_rb"]), 3),
-                "y": round(float(r["avg_te"]), 3),
-                "fb": round(float(r["avg_fb"]), 3),
-                "run_n": int(r["run_n"]),
-                "cluster": order[cluster_of[r["team"]]],
-                "cluster_name": cluster_of[r["team"]],
-            })
-
-    payload = {"points": points, "clusters": [name for _, name in CLUSTER_NAMES]}
-    with open(OUT_PATH, "w") as out:
-        out.write(TEMPLATE.replace("__DATA_JSON__", json.dumps(payload)))
-    print(f"wrote {OUT_PATH} ({len(points)} teams)")
+        rows = [r for r in csv.DictReader(f) if r["season"] == SEASON]
+    for name, cfg in CHARTS.items():
+        build(name, cfg, rows, cluster_of, order)
 
 
 TEMPLATE = r"""<!doctype html>
@@ -47,7 +89,7 @@ TEMPLATE = r"""<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Run Personnel 2025</title>
+<title>__PAGE_TITLE__</title>
 <style>
 :root {
   color-scheme: light;
@@ -104,11 +146,11 @@ th { color: var(--text-secondary); font-weight: 600; }
 </head>
 <body>
 <main>
-  <h1>Run personnel, 2025</h1>
-  <p class="sub">Average backs and tight ends on the field per run. Designed non-QB runs only (no scrambles, QB runs, kneels or 2-pt tries), neutral game script (WP 20-80%, outside last 2 min of each half). Color and shape = run direction x formation cluster.</p>
+  <h1 id="title"></h1>
+  <p class="sub" id="sub"></p>
   <div class="legend" id="legend"></div>
-  <svg id="chart" viewBox="0 0 900 620" role="img" aria-label="Scatter of 32 NFL offenses by average backs and tight ends on run plays"></svg>
-  <p class="note">X: average RB + FB per run (a 21-personnel snap counts 2). Y: average TE per run. Positions are roster positions, so an extra offensive lineman reporting eligible is not counted as a TE, and a TE lined up at fullback counts as a TE. Dashed lines are league averages.</p>
+  <svg id="chart" viewBox="0 0 900 620" role="img"></svg>
+  <p class="note" id="note"></p>
   <details>
     <summary>Table view</summary>
     <table id="tbl"></table>
@@ -117,7 +159,18 @@ th { color: var(--text-secondary); font-weight: 600; }
 <div id="tip"></div>
 <script>
 const payload = __DATA_JSON__;
-const data = payload.points, names = payload.clusters;
+const data = payload.points, names = payload.clusters, cfg = payload.config;
+document.getElementById("title").textContent = cfg.title;
+document.getElementById("sub").textContent = cfg.sub;
+document.getElementById("note").textContent = cfg.note;
+document.getElementById("chart").setAttribute("aria-label", `Scatter of 32 NFL offenses: ${cfg.x_title} vs ${cfg.y_title}`);
+const FMT = {
+  dec: v => v.toFixed(2),
+  sdec: v => (v > 0 ? "+" : "") + v.toFixed(2),
+  pct: v => (v * 100).toFixed(1) + "%",
+  int: v => String(v),
+};
+const TICK = {dec: v => v.toFixed(1), sdec: v => (v > 1e-9 ? "+" : "") + v.toFixed(1), pct: v => Math.round(v * 100) + "%"};
 // color + shape double-encode cluster: 7 hues can't all separate for CVD in a scatter
 const shape = (c, r) => {
   const a = r * 1.25;
@@ -141,36 +194,35 @@ const el = (tag, attrs, parent = svg, text) => {
   if (text != null) e.textContent = text;
   parent.appendChild(e); return e;
 };
-const STEP = 0.1;
-const ext = k => {
+const ext = (k, step) => {
   const v = data.map(d => d[k]);
-  return [Math.floor(Math.min(...v) / STEP - 0.5) * STEP, Math.ceil(Math.max(...v) / STEP + 0.5) * STEP];
+  return [Math.floor(Math.min(...v) / step - 0.5) * step, Math.ceil(Math.max(...v) / step + 0.5) * step];
 };
-const [x0, x1] = ext("x"), [y0, y1] = ext("y");
+const [x0, x1] = ext("x", cfg.x_step), [y0, y1] = ext("y", cfg.y_step);
 const sx = v => m.l + (v - x0) / (x1 - x0) * pw;
 const sy = v => m.t + ph - (v - y0) / (y1 - y0) * ph;
 const mean = k => data.reduce((s, d) => s + d[k], 0) / data.length;
 const mx = mean("x"), my = mean("y");
 
 const g = el("g", {class: "grid"});
-for (let i = 0; x0 + i * STEP <= x1 + 1e-9; i++) {
-  const v = x0 + i * STEP;
+for (let i = 0; x0 + i * cfg.x_step <= x1 + 1e-9; i++) {
+  const v = x0 + i * cfg.x_step;
   el("line", {x1: sx(v), x2: sx(v), y1: m.t, y2: m.t + ph}, g);
-  el("text", {x: sx(v), y: m.t + ph + 18, "text-anchor": "middle", class: "tick"}, svg, v.toFixed(1));
+  el("text", {x: sx(v), y: m.t + ph + 18, "text-anchor": "middle", class: "tick"}, svg, TICK[cfg.x_fmt](v));
 }
-for (let i = 0; y0 + i * STEP <= y1 + 1e-9; i++) {
-  const v = y0 + i * STEP;
+for (let i = 0; y0 + i * cfg.y_step <= y1 + 1e-9; i++) {
+  const v = y0 + i * cfg.y_step;
   el("line", {x1: m.l, x2: m.l + pw, y1: sy(v), y2: sy(v)}, g);
-  el("text", {x: m.l - 8, y: sy(v) + 4, "text-anchor": "end", class: "tick"}, svg, v.toFixed(1));
+  el("text", {x: m.l - 8, y: sy(v) + 4, "text-anchor": "end", class: "tick"}, svg, TICK[cfg.y_fmt](v));
 }
 el("line", {x1: sx(mx), x2: sx(mx), y1: m.t, y2: m.t + ph, class: "zero"});
 el("line", {x1: m.l, x2: m.l + pw, y1: sy(my), y2: sy(my), class: "zero"});
-el("text", {x: m.l + pw / 2, y: H - 12, "text-anchor": "middle", class: "axis-title"}, svg, "Avg backs (RB + FB) per run");
-el("text", {transform: `translate(16 ${m.t + ph / 2}) rotate(-90)`, "text-anchor": "middle", class: "axis-title"}, svg, "Avg TEs per run");
-el("text", {x: m.l + 8, y: m.t + 14, class: "quad"}, svg, "Fewer backs / more TEs");
-el("text", {x: m.l + pw - 8, y: m.t + 14, "text-anchor": "end", class: "quad"}, svg, "More backs / more TEs");
-el("text", {x: m.l + 8, y: m.t + ph - 8, class: "quad"}, svg, "Fewer backs / fewer TEs");
-el("text", {x: m.l + pw - 8, y: m.t + ph - 8, "text-anchor": "end", class: "quad"}, svg, "More backs / fewer TEs");
+el("text", {x: m.l + pw / 2, y: H - 12, "text-anchor": "middle", class: "axis-title"}, svg, cfg.x_title);
+el("text", {transform: `translate(16 ${m.t + ph / 2}) rotate(-90)`, "text-anchor": "middle", class: "axis-title"}, svg, cfg.y_title);
+el("text", {x: m.l + 8, y: m.t + 14, class: "quad"}, svg, cfg.quads[0]);
+el("text", {x: m.l + pw - 8, y: m.t + 14, "text-anchor": "end", class: "quad"}, svg, cfg.quads[1]);
+el("text", {x: m.l + 8, y: m.t + ph - 8, class: "quad"}, svg, cfg.quads[2]);
+el("text", {x: m.l + pw - 8, y: m.t + ph - 8, "text-anchor": "end", class: "quad"}, svg, cfg.quads[3]);
 
 const counts = names.map((_, i) => data.filter(d => d.cluster === i).length);
 document.getElementById("legend").innerHTML = names.map((n, i) =>
@@ -185,8 +237,8 @@ data.forEach(d => {
   const dot = el("path", {d: shape(d.cluster, 5.5), transform: `translate(${cx} ${cy})`, class: "dot", fill: `var(--c${d.cluster})`});
   hit.addEventListener("mousemove", e => {
     dot.classList.add("on");
-    tip.innerHTML = `<b>${d.team}</b> <span>${d.cluster_name}</span><br><span>Avg backs:</span> ${d.x.toFixed(2)} (FB ${d.fb.toFixed(2)})` +
-      `<br><span>Avg TEs:</span> ${d.y.toFixed(2)}<br><span>Designed runs:</span> ${d.run_n}`;
+    tip.innerHTML = `<b>${d.team}</b> <span>${d.cluster_name}</span>` +
+      cfg.tip.map(([label, f, fmt]) => `<br><span>${label}:</span> ${FMT[fmt](d[f])}`).join("");
     tip.style.display = "block";
     const tx = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
     tip.style.left = tx + "px"; tip.style.top = (e.clientY + 14) + "px";
@@ -216,8 +268,9 @@ data.forEach(d => {
 
 const rows = [...data].sort((a, b) => b.y - a.y);
 document.getElementById("tbl").innerHTML =
-  "<tr><th>Team</th><th>Cluster</th><th>Avg backs</th><th>Avg FB</th><th>Avg TEs</th><th>Runs</th></tr>" +
-  rows.map(d => `<tr><td>${d.team}</td><td>${d.cluster_name}</td><td>${d.x.toFixed(2)}</td><td>${d.fb.toFixed(2)}</td><td>${d.y.toFixed(2)}</td><td>${d.run_n}</td></tr>`).join("");
+  "<tr><th>Team</th><th>Cluster</th>" + cfg.tip.map(([label]) => `<th>${label}</th>`).join("") + "</tr>" +
+  rows.map(d => `<tr><td>${d.team}</td><td>${d.cluster_name}</td>` +
+    cfg.tip.map(([, f, fmt]) => `<td>${FMT[fmt](d[f])}</td>`).join("") + "</tr>").join("");
 </script>
 </body>
 </html>

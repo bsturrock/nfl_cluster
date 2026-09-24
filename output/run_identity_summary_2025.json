@@ -1,0 +1,349 @@
+{
+  "season": 2025,
+  "n_teams": 32,
+  "features": [
+    "run_dir",
+    "shotgun_share",
+    "te_minus_backs",
+    "motion_rate"
+  ],
+  "feature_correlations": {
+    "run_dir": {
+      "run_dir": 1.0,
+      "shotgun_share": -0.0,
+      "te_minus_backs": -0.06,
+      "motion_rate": 0.15
+    },
+    "shotgun_share": {
+      "run_dir": -0.0,
+      "shotgun_share": 1.0,
+      "te_minus_backs": -0.02,
+      "motion_rate": -0.04
+    },
+    "te_minus_backs": {
+      "run_dir": -0.06,
+      "shotgun_share": -0.02,
+      "te_minus_backs": 1.0,
+      "motion_rate": -0.28
+    },
+    "motion_rate": {
+      "run_dir": 0.15,
+      "shotgun_share": -0.04,
+      "te_minus_backs": -0.28,
+      "motion_rate": 1.0
+    }
+  },
+  "k": 6,
+  "silhouette": 0.23,
+  "bootstrap_ari_mean": 0.42,
+  "bootstrap_ari_p10": 0.25,
+  "feature_anova_f": {
+    "run_dir": 10.6,
+    "shotgun_share": 9.0,
+    "te_minus_backs": 6.8,
+    "motion_rate": 17.5
+  },
+  "sweep": [
+    {
+      "k": 2,
+      "silhouette": 0.206,
+      "calinski_harabasz": 8.6,
+      "davies_bouldin": 1.499,
+      "ward_silhouette": 0.202,
+      "ari_vs_ward": 0.87,
+      "sizes": [
+        22,
+        10
+      ],
+      "singletons": 0
+    },
+    {
+      "k": 3,
+      "silhouette": 0.235,
+      "calinski_harabasz": 9.5,
+      "davies_bouldin": 1.295,
+      "ward_silhouette": 0.235,
+      "ari_vs_ward": 1.0,
+      "sizes": [
+        19,
+        11,
+        2
+      ],
+      "singletons": 0
+    },
+    {
+      "k": 4,
+      "silhouette": 0.209,
+      "calinski_harabasz": 9.9,
+      "davies_bouldin": 1.234,
+      "ward_silhouette": 0.245,
+      "ari_vs_ward": 0.49,
+      "sizes": [
+        13,
+        10,
+        7,
+        2
+      ],
+      "singletons": 0
+    },
+    {
+      "k": 5,
+      "silhouette": 0.19,
+      "calinski_harabasz": 9.3,
+      "davies_bouldin": 1.122,
+      "ward_silhouette": 0.25,
+      "ari_vs_ward": 0.33,
+      "sizes": [
+        10,
+        9,
+        7,
+        4,
+        2
+      ],
+      "singletons": 0
+    },
+    {
+      "k": 6,
+      "silhouette": 0.23,
+      "calinski_harabasz": 10.1,
+      "davies_bouldin": 1.074,
+      "ward_silhouette": 0.253,
+      "ari_vs_ward": 0.58,
+      "sizes": [
+        8,
+        7,
+        7,
+        4,
+        4,
+        2
+      ],
+      "singletons": 0
+    },
+    {
+      "k": 7,
+      "silhouette": 0.235,
+      "calinski_harabasz": 10.5,
+      "davies_bouldin": 0.876,
+      "ward_silhouette": 0.252,
+      "ari_vs_ward": 0.42,
+      "sizes": [
+        8,
+        8,
+        7,
+        4,
+        3,
+        1,
+        1
+      ],
+      "singletons": 2
+    },
+    {
+      "k": 8,
+      "silhouette": 0.238,
+      "calinski_harabasz": 11.3,
+      "davies_bouldin": 0.831,
+      "ward_silhouette": 0.275,
+      "ari_vs_ward": 0.54,
+      "sizes": [
+        10,
+        8,
+        5,
+        3,
+        3,
+        1,
+        1,
+        1
+      ],
+      "singletons": 3
+    },
+    {
+      "k": 9,
+      "silhouette": 0.274,
+      "calinski_harabasz": 12.7,
+      "davies_bouldin": 0.766,
+      "ward_silhouette": 0.235,
+      "ari_vs_ward": 0.59,
+      "sizes": [
+        8,
+        7,
+        5,
+        3,
+        3,
+        3,
+        1,
+        1,
+        1
+      ],
+      "singletons": 3
+    },
+    {
+      "k": 10,
+      "silhouette": 0.257,
+      "calinski_harabasz": 13.6,
+      "davies_bouldin": 0.751,
+      "ward_silhouette": 0.23,
+      "ari_vs_ward": 0.58,
+      "sizes": [
+        6,
+        5,
+        4,
+        4,
+        4,
+        3,
+        3,
+        1,
+        1,
+        1
+      ],
+      "singletons": 3
+    }
+  ],
+  "clusters": [
+    {
+      "cluster": "Under center, outside, low motion",
+      "n": 7,
+      "teams": [
+        "ARI",
+        "BAL",
+        "DEN",
+        "MIN",
+        "NE",
+        "SEA",
+        "TEN"
+      ],
+      "mean_silhouette": 0.26,
+      "raw": {
+        "run_dir": 0.027,
+        "shotgun_share": 0.302,
+        "te_minus_backs": 0.259,
+        "motion_rate": 0.54
+      },
+      "z": {
+        "run_dir": 0.62,
+        "shotgun_share": -0.64,
+        "te_minus_backs": -0.17,
+        "motion_rate": -0.72
+      }
+    },
+    {
+      "cluster": "Under center, TE-heavy, motion",
+      "n": 8,
+      "teams": [
+        "BUF",
+        "CHI",
+        "DET",
+        "GB",
+        "JAX",
+        "LA",
+        "PIT",
+        "TB"
+      ],
+      "mean_silhouette": 0.14,
+      "raw": {
+        "run_dir": -0.032,
+        "shotgun_share": 0.283,
+        "te_minus_backs": 0.513,
+        "motion_rate": 0.674
+      },
+      "z": {
+        "run_dir": 0.22,
+        "shotgun_share": -0.75,
+        "te_minus_backs": 0.55,
+        "motion_rate": 0.65
+      }
+    },
+    {
+      "cluster": "Fullback, inside, motion",
+      "n": 4,
+      "teams": [
+        "DAL",
+        "HOU",
+        "LAC",
+        "SF"
+      ],
+      "mean_silhouette": 0.28,
+      "raw": {
+        "run_dir": -0.142,
+        "shotgun_share": 0.353,
+        "te_minus_backs": -0.257,
+        "motion_rate": 0.648
+      },
+      "z": {
+        "run_dir": -0.53,
+        "shotgun_share": -0.31,
+        "te_minus_backs": -1.62,
+        "motion_rate": 0.38
+      }
+    },
+    {
+      "cluster": "Gun, inside, TE-heavy, static",
+      "n": 7,
+      "teams": [
+        "CAR",
+        "CLE",
+        "IND",
+        "KC",
+        "LV",
+        "NYG",
+        "PHI"
+      ],
+      "mean_silhouette": 0.22,
+      "raw": {
+        "run_dir": -0.161,
+        "shotgun_share": 0.492,
+        "te_minus_backs": 0.562,
+        "motion_rate": 0.5
+      },
+      "z": {
+        "run_dir": -0.66,
+        "shotgun_share": 0.56,
+        "te_minus_backs": 0.68,
+        "motion_rate": -1.12
+      }
+    },
+    {
+      "cluster": "Heavy gun, heavy inside, motion",
+      "n": 4,
+      "teams": [
+        "CIN",
+        "NO",
+        "NYJ",
+        "WAS"
+      ],
+      "mean_silhouette": 0.43,
+      "raw": {
+        "run_dir": -0.206,
+        "shotgun_share": 0.593,
+        "te_minus_backs": 0.353,
+        "motion_rate": 0.671
+      },
+      "z": {
+        "run_dir": -0.97,
+        "shotgun_share": 1.2,
+        "te_minus_backs": 0.1,
+        "motion_rate": 0.63
+      }
+    },
+    {
+      "cluster": "Gun, stretch outside, heavy motion",
+      "n": 2,
+      "teams": [
+        "ATL",
+        "MIA"
+      ],
+      "mean_silhouette": 0.03,
+      "raw": {
+        "run_dir": 0.274,
+        "shotgun_share": 0.641,
+        "te_minus_backs": -0.015,
+        "motion_rate": 0.789
+      },
+      "z": {
+        "run_dir": 2.29,
+        "shotgun_share": 1.5,
+        "te_minus_backs": -0.94,
+        "motion_rate": 1.82
+      }
+    }
+  ]
+}

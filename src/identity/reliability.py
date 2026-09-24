@@ -9,6 +9,8 @@ game (week) grain and the season grain.
     rather than noise; this is the reliability of a single game's value.
   - yoy_r: correlation of a team's season N value with its season N+1 value
     (how sticky the trait is across seasons, coaching changes included).
+  - Theme rows (theme_*): same split-half and year-over-year checks on the
+    theme scores the model clusters on (src/identity/themes.py).
 
 Output: output/identity/feature_reliability.csv
 """
@@ -19,6 +21,7 @@ import pandas as pd
 
 sys.path.insert(0, "src/identity")
 from build_identity_features import FEATURES, build  # noqa: E402
+from themes import THEME_FEATURES, THEMES, theme_scores, within_season_z  # noqa: E402
 
 OUT_PATH = "output/identity/feature_reliability.csv"
 
@@ -62,11 +65,28 @@ def main():
             "game_icc": icc1(games[f], games["team_season"]),
             "yoy_r": yoy[f].corr(yoy[f + "_next"]),
         })
+
+    def themes_of(tab):
+        tab = tab.reset_index() if "season" not in tab.columns else tab
+        z = within_season_z(tab[THEME_FEATURES], tab["season"])
+        return theme_scores(z, tab["season"]).set_index([tab["season"], tab["team"]])
+
+    t_odd, t_even = themes_of(odd), themes_of(even)
+    t_season = themes_of(season)
+    t_next = t_season.reset_index().assign(season=lambda d: d["season"] - 1).set_index(["season", "team"])
+    t_yoy = t_season.join(t_next, rsuffix="_next", how="inner")
+    for name in THEMES:
+        r = t_odd[name].corr(t_even[name])
+        rows.append({
+            "feature": f"theme_{name}", "split_half_r": r, "season_reliability": 2 * r / (1 + r),
+            "game_icc": np.nan, "yoy_r": t_yoy[name].corr(t_yoy[name + "_next"]),
+        })
     out = pd.DataFrame(rows).round(3)
     out.to_csv(OUT_PATH, index=False)
     print(out.to_string(index=False))
-    print(f"\nmedian season reliability {out['season_reliability'].median():.2f}, "
-          f"median single-game ICC {out['game_icc'].median():.2f}")
+    feat = out[~out["feature"].str.startswith("theme_")]
+    print(f"\nfeatures: median season reliability {feat['season_reliability'].median():.2f}, "
+          f"median single-game ICC {feat['game_icc'].median():.2f}")
 
 
 if __name__ == "__main__":

@@ -2,14 +2,16 @@
 
 Variants (all k-means, scored the same way as cluster_identity.py: silhouette
 vs a same-covariance Gaussian null, bootstrap ARI, year-over-year persistence,
-and ARI against the current k=5 assignments):
+and ARI against the model's k=5 assignments):
 
-  current          19 within-season z-scores -> PCA (parallel analysis)
+  pca_19           19 within-season z-scores -> PCA (parallel analysis);
+                   the model's original approach
   skew_fixed       same, but log(x + 0.01) on the six zero-inflated features
                    before z-scoring
   themes           19 features collapsed into 7 fixed, equal-weight themes
   themes_refined   themes minus the two features that don't fit their theme
-                   (extra_ol, screen: item-rest r < 0.15)
+                   (extra_ol, screen: item-rest r < 0.15); now the model
+                   (src/identity/themes.py)
   binned_3         each z-score cut into 3 levels (+-0.43, equal thirds)
 
 Output: output/identity/variant_comparison.csv, output/identity/theme_consistency.csv
@@ -23,6 +25,10 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import adjusted_rand_score, silhouette_score
 
 warnings.filterwarnings("ignore")
+
+import sys  # noqa: E402
+sys.path.insert(0, "src/identity")
+from cluster_identity import select_features  # noqa: E402
 OUT = "output/identity"
 SKEWED = ["pistol", "two_back", "extra_ol", "no_huddle", "qb_design_run", "rpo"]
 THEMES = {
@@ -41,7 +47,7 @@ THEMES_REFINED = {n: {f: s for f, s in w.items() if f not in DROP_REFINED} for n
 def main():
     rng = np.random.default_rng(0)
     t = pd.read_csv(f"{OUT}/team_season_identity.csv")
-    feats = pd.read_csv(f"{OUT}/pca_loadings.csv", index_col=0).index[:-3].tolist()
+    feats = select_features(pd.read_csv("data/identity_features.csv"))[0]
     zs = lambda df: df.groupby(t["season"]).transform(lambda s: (s - s.mean()) / s.std())
 
     z_raw = zs(t[feats])
@@ -77,7 +83,7 @@ def main():
         return PCA(n_pcs(Z)).fit_transform(Z)
 
     variants = {
-        "current": pca(z_raw.values),
+        "pca_19": pca(z_raw.values),
         "skew_fixed": pca(z_log.values),
         "themes": themes(z_raw, THEMES, "themes"),
         "themes_refined": themes(z_raw, THEMES_REFINED, "themes_refined"),
@@ -108,7 +114,7 @@ def main():
                 "variant": name, "dims": X.shape[1], "k": k, "silhouette": sil,
                 "null_mean": np.mean(null), "silhouette_z_vs_null": (sil - np.mean(null)) / np.std(null),
                 "bootstrap_ari": np.mean(boot), "yoy_same_cluster": yoy(lab),
-                "ari_vs_current_k5": adjusted_rand_score(t["cluster_k5"], lab),
+                "ari_vs_model_k5": adjusted_rand_score(t["cluster_k5"], lab),
                 "min_cluster_size": int(np.bincount(lab).min()),
             })
     res = pd.DataFrame(rows).round(3)

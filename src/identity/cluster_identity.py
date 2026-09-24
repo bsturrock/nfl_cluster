@@ -8,11 +8,13 @@ Pipeline:
   2. Z-score each feature *within season*: league-wide drift (motion went
      from 42% to 60% of neutral plays 2022->2025) would otherwise make
      "season" the dominant cluster axis instead of identity.
-  3. PCA, keeping the components that beat Horn's parallel analysis
-     (eigenvalue above the 95th percentile of eigenvalues from same-shape
-     random data).
+  3. Collapse the features into 7 theme scores (src/identity/themes.py) and
+     cluster in that 7-D space, so every axis has a name. This replaced an
+     earlier PCA step: on the same data the themes recover the same k=5
+     clusters (ARI 0.83) with a larger margin over the null (see
+     compare_variants.py / variant_comparison.csv).
   4. Sweep k=2..10 for k-means, Ward, and diagonal GMM. For each: silhouette
-     (in PCA space and in the full z-scored feature space), Calinski-
+     (in theme space and in the full z-scored feature space), Calinski-
      Harabasz, Davies-Bouldin, bootstrap stability (mean ARI of refits on
      resamples vs the full-data fit), and a null-model silhouette: k-means
      on Gaussian data with the same covariance and no cluster structure.
@@ -21,7 +23,7 @@ Pipeline:
   5. Final model: k-means at the primary k, plus a secondary finer k.
 
 Outputs (output/identity/):
-  k_selection.csv, pca_loadings.csv, team_season_identity.csv,
+  k_selection.csv, theme_loadings.csv, team_season_identity.csv,
   cluster_profiles_k{K}.csv, cluster_members_k{K}.csv, team_trajectories.csv,
   cluster_transitions.csv
 """
@@ -31,7 +33,6 @@ import warnings
 import numpy as np
 import pandas as pd
 from sklearn.cluster import AgglomerativeClustering, KMeans
-from sklearn.decomposition import PCA
 from sklearn.metrics import (
     adjusted_rand_score, calinski_harabasz_score, davies_bouldin_score,
     silhouette_samples, silhouette_score,
@@ -40,12 +41,16 @@ from sklearn.mixture import GaussianMixture
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+import sys  # noqa: E402
+sys.path.insert(0, "src/identity")
+from themes import THEME_LABELS, THEMES, theme_scores  # noqa: E402
+
 OUT = "output/identity"
 MIN_RELIABILITY = 0.6
 MAX_ABS_CORR = 0.8
 K_RANGE = range(2, 11)
 K_PRIMARY = 5
-K_SECONDARY = 7
+K_SECONDARY = 6
 N_BOOT = 50
 N_NULL = 30
 SEED = 0
@@ -60,20 +65,20 @@ LABELS = {
         3: "Shanahan wide-zone, two-back motion",
         4: "Heavy power run + QB run",
     },
-    7: {
-        0: "Shotgun spread, balanced",
-        1: "Under-center, multi-TE play-action",
-        2: "Under-center 11p + motion (McVay-style)",
-        3: "Pass-first spread (early-down PROE)",
-        4: "Shotgun QB-run / RPO",
-        5: "Shanahan wide-zone, two-back motion",
-        6: "Heavy power run + QB run",
+    6: {
+        0: "Under-center play-action",
+        1: "Shotgun spread, balanced",
+        2: "Pass-first spread",
+        3: "Shotgun QB-run / tempo",
+        4: "Shanahan wide-zone, two-back motion",
+        5: "Heavy power run + QB run",
     },
 }
 
 
 def select_features(feats):
     rel = pd.read_csv(f"{OUT}/feature_reliability.csv").set_index("feature")
+    rel = rel[~rel.index.str.startswith("theme_")]
     kept = [f for f in rel.index if rel.loc[f, "season_reliability"] >= MIN_RELIABILITY]
     dropped = {f: f"season reliability {rel.loc[f, 'season_reliability']:.2f} < {MIN_RELIABILITY}"
                for f in rel.index if f not in kept}
@@ -92,18 +97,6 @@ def select_features(feats):
 
 def within_season_z(feats, cols):
     return feats.groupby("season")[cols].transform(lambda s: (s - s.mean()) / s.std())
-
-
-def parallel_analysis(Z, rng, n_iter=200):
-    real = PCA().fit(Z).explained_variance_
-    null = []
-    for _ in range(n_iter):
-        R = rng.standard_normal(Z.shape)
-        R = (R - R.mean(0)) / R.std(0, ddof=1)
-        null.append(PCA().fit(R).explained_variance_)
-    thresh = np.percentile(null, 95, axis=0)
-    n = int(np.argmin(real > thresh)) if not (real > thresh).all() else len(real)
-    return n, real, thresh
 
 
 def fit_labels(method, X, k, seed=SEED):
@@ -149,18 +142,25 @@ def main():
     Zdf = within_season_z(feats, features)
     Z = Zdf.values
 
-    n_pc, eig, eig_null = parallel_analysis(Z, rng)
-    pca = PCA(n_pc, random_state=SEED).fit(Z)
-    X = pca.transform(Z)
     print(f"{len(features)} features kept; dropped: {json.dumps(dropped, indent=1)}")
-    print(f"parallel analysis keeps {n_pc} PCs ({pca.explained_variance_ratio_.sum():.1%} of variance)")
+    unused = [f for f in features if not any(f in w for w in THEMES.values())]
+    print(f"not in any theme (kept for display only): {unused}")
+    Tdf = theme_scores(Zdf, feats["season"])
+    X = Tdf.values
 
-    loadings = pd.DataFrame(pca.components_.T, index=features,
-                            columns=[f"PC{i+1}" for i in range(n_pc)]).round(3)
-    loadings.loc["explained_var_ratio"] = pca.explained_variance_ratio_.round(3)
-    loadings.loc["eigenvalue"] = eig[:n_pc].round(3)
-    loadings.loc["null_eigenvalue_p95"] = eig_null[:n_pc].round(3)
-    loadings.to_csv(f"{OUT}/pca_loadings.csv")
+    # theme definitions + how each feature relates to its theme score
+    tl = []
+    for name, w in THEMES.items():
+        for f, sign in w.items():
+            rest = [g for g in w if g != f]
+            tl.append({
+                "theme": name, "theme_label": THEME_LABELS[name], "feature": f, "sign": sign,
+                "r_with_theme": np.corrcoef(Zdf[f] * sign, Tdf[name])[0, 1],
+                "item_rest_r": (np.corrcoef(Zdf[f] * sign, (Zdf[rest] * pd.Series({g: w[g] for g in rest})).mean(axis=1))[0, 1]
+                                if rest else np.nan),
+            })
+    pd.DataFrame(tl).round(3).to_csv(f"{OUT}/theme_loadings.csv", index=False)
+    print("theme correlations:\n", Tdf.corr().round(2).to_string())
 
     rows = []
     null_cache = {}
@@ -199,8 +199,8 @@ def main():
         # margin: how much closer the assigned centroid is than the runner-up (0 = on the boundary)
         out[f"margin_k{k}"] = (1 - d[np.arange(len(X)), lab] / d[np.arange(len(X)), second]).round(3)
 
-        prof_z = Zdf.groupby(lab).mean().T.round(2)
-        prof_raw = feats[features].groupby(lab).mean().T.round(3)
+        prof_z = pd.concat([Tdf, Zdf], axis=1).groupby(lab).mean().T.round(2)
+        prof_raw = feats[features].groupby(lab).mean().T.round(3).reindex(prof_z.index)
         prof = pd.concat({"z": prof_z, "raw_mean": prof_raw}, axis=1)
         prof.columns = [f"{kind}_c{c}" for kind, c in prof.columns]
         league = feats[features].mean().round(3).rename("league_mean")
@@ -225,8 +225,8 @@ def main():
         for c in range(k):
             print(c, LABELS[k][c], size[c], members.loc[c, "members_most_to_least_typical"])
 
-    for i in range(n_pc):
-        out[f"PC{i+1}"] = X[:, i].round(3)
+    for name in THEMES:
+        out[f"theme_{name}"] = Tdf[name].round(3)
     out = out.join(feats[features + ["n_plays", "n_dropbacks"]].round(4))
     out.to_csv(f"{OUT}/team_season_identity.csv", index=False)
 

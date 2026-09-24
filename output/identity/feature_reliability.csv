@@ -22,3 +22,10 @@ middle_target,0.365,0.535,0.051,0.25
 time_to_throw,0.561,0.718,0.138,0.196
 rb_target_share,0.552,0.711,0.107,0.444
 te_target_share,0.728,0.843,0.157,0.321
+theme_under_center_vs_gun,0.819,0.9,,0.619
+theme_dropback_play_action,0.58,0.734,,0.243
+theme_wide_zone_package,0.919,0.958,,0.8
+theme_te_heavy,0.837,0.911,,0.254
+theme_qb_run_game,0.818,0.9,,0.665
+theme_tempo,0.895,0.944,,0.443
+theme_pass_first,0.568,0.724,,0.348

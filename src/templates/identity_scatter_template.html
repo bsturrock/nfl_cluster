@@ -146,7 +146,7 @@ details summary { cursor: pointer; font-family: var(--display); font-size: 20px;
   <div class="controls">
     <div class="ctl"><span class="lbl">Clusters</span>
       <div class="seg" role="group" aria-label="Number of clusters">
-        <button id="k5" aria-pressed="true">k = 5</button><button id="k7" aria-pressed="false">k = 7</button>
+        <button id="k5" aria-pressed="true">k = 5</button><button id="k7" aria-pressed="false">k = 6</button>
       </div>
     </div>
     <div class="ctl"><label for="xsel">X axis</label><select id="xsel"></select></div>
@@ -166,7 +166,7 @@ details summary { cursor: pointer; font-family: var(--display); font-size: 20px;
 
   <section class="card">
     <h3>What defines each cluster</h3>
-    <p class="hint">Mean within-season z-score per feature. 0 is league average for that season, +1 is one standard deviation above.</p>
+    <p class="hint">Mean score per cluster, in standard deviations from that season's league average. The model clusters on the seven themes; the features below them show what each theme is made of.</p>
     <div class="scroll"><table class="heat" id="heat"></table></div>
   </section>
 
@@ -191,35 +191,30 @@ const FL = {
   qb_out_of_pocket: ["QB out of pocket", "pct"], time_to_throw: ["Median time to throw", "sec"],
   rb_target_share: ["RB target share", "pct"], te_target_share: ["TE target share", "pct"],
 };
-const PC_POLES = [
-  ["Two-back, outside run, play action, motion", "11 personnel, RPO, pass-first"],
-  ["Under center", "QB runs, pistol, no-huddle"],
-  ["Motion, two-back", "Time to throw, TE targets, under center"],
-  ["11 personnel, time to throw", "Multi-TE, TE and RB targets"],
-  ["Screens, RB targets", "Pass-first, empty, TE targets"],
-];
-// k=7 clusters map to their k=5 parent family (color); split families get a hollow variant of the shape
-const K7_PARENT = [0, 1, 1, 0, 2, 3, 4];
-const K7_HOLLOW = [false, false, true, true, false, false, false];
+const TH = D.themes;
+const [KP, KS] = D.k;
+// secondary clusters map to their primary-level parent family (color); split families get a hollow variant
+const KS_PARENT = [1, 0, 0, 2, 3, 4];
+const KS_HOLLOW = [false, false, true, false, false, false];
 const SHAPES = ["circle", "square", "triangle", "diamond", "plus"];
 const SHORT = {
   5: ["Spread", "Under-center PA", "QB-run / RPO", "Wide-zone", "Power + QB run"],
-  7: ["Spread, balanced", "Multi-TE PA", "11p + motion", "Pass-first spread", "QB-run / RPO", "Wide-zone", "Power + QB run"],
+  6: ["Under-center PA", "Spread, balanced", "Pass-first spread", "QB-run / tempo", "Wide-zone", "Power + QB run"],
 };
 
-let K = 5, xKey = "pc0", yKey = "pc1", team = "", pinned = null, hidden = new Set();
+let K = KP, xKey = "th0", yKey = "th2", team = "", pinned = null, hidden = new Set();
 
 const fmt = (key, v) => {
-  if (key.startsWith("pc")) return v.toFixed(2);
+  if (key.startsWith("th")) return (v >= 0 ? "+" : "") + v.toFixed(2);
   const u = FL[key][1];
   if (u === "pct") return (v * 100).toFixed(1) + "%";
   if (u === "pp") return (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + " pp";
   return v.toFixed(2) + "s";
 };
-const val = (p, key) => key.startsWith("pc") ? p.pc[+key.slice(2)] : p.f[F.indexOf(key)];
-const cl = p => K === 5 ? p.c5 : p.c7;
-const fam = c => K === 5 ? c : K7_PARENT[c];
-const hollow = c => K === 7 && K7_HOLLOW[c];
+const val = (p, key) => key.startsWith("th") ? p.th[+key.slice(2)] : p.f[F.indexOf(key)];
+const cl = p => p["c" + K];
+const fam = c => K === KP ? c : KS_PARENT[c];
+const hollow = c => K === KS && KS_HOLLOW[c];
 const shapeOf = c => SHAPES[fam(c)];
 const colorVar = c => `var(--c${fam(c)})`;
 const labels = () => D.profiles[K].labels;
@@ -244,8 +239,8 @@ const esc = s => String(s).replace(/[&<>"]/g, m => ({"&":"&amp;","<":"&lt;",">":
 
 // ---------- controls ----------
 function fillAxisSelect(sel, def) {
-  const g1 = document.createElement("optgroup"); g1.label = "Principal components";
-  D.ev.forEach((e, i) => { const o = new Option(`PC${i+1} (${(e*100).toFixed(1)}% of variance)`, "pc" + i); g1.appendChild(o); });
+  const g1 = document.createElement("optgroup"); g1.label = "Themes (what the model clusters on)";
+  TH.forEach((t, i) => g1.appendChild(new Option(t.label, "th" + i)));
   const g2 = document.createElement("optgroup"); g2.label = "Raw features";
   F.forEach(f => g2.appendChild(new Option(FL[f][0], f)));
   sel.append(g1, g2); sel.value = def;
@@ -255,15 +250,12 @@ fillAxisSelect(xsel, xKey); fillAxisSelect(ysel, yKey);
 xsel.onchange = () => { xKey = xsel.value; draw(); if (team && !pinned) showPanel(null); };
 ysel.onchange = () => { yKey = ysel.value; draw(); if (team && !pinned) showPanel(null); };
 tsel.onchange = () => { team = tsel.value; pinned = null; draw(); showPanel(null); };
-k5.onclick = () => setK(5); k7.onclick = () => setK(7);
-reset.onclick = () => { xKey = "pc0"; yKey = "pc1"; xsel.value = xKey; ysel.value = yKey; team = ""; tsel.value = ""; pinned = null; hidden.clear(); setK(5); };
-function setK(k) { K = k; k5.setAttribute("aria-pressed", k === 5); k7.setAttribute("aria-pressed", k === 7); hidden.clear(); buildLegend(); buildHeat(); draw(); showPanel(pinned); }
+k5.onclick = () => setK(KP); k7.onclick = () => setK(KS);
+reset.onclick = () => { xKey = "th0"; yKey = "th2"; xsel.value = xKey; ysel.value = yKey; team = ""; tsel.value = ""; pinned = null; hidden.clear(); setK(KP); };
+function setK(k) { K = k; k5.setAttribute("aria-pressed", k === KP); k7.setAttribute("aria-pressed", k === KS); hidden.clear(); buildLegend(); buildHeat(); draw(); showPanel(pinned); }
 
 function buildStats() {
-  stats.innerHTML = [
-    ["team-seasons", "128"], ["features", "19"], ["PCs kept", "5 (60.1% var.)"],
-    ["silhouette k=5", "0.214"], ["random-data baseline", "0.167 ± 0.010"], ["same cluster next season", "61.5% (chance 30.4%)"],
-  ].map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join("");
+  stats.innerHTML = D.stats.map(([k, v]) => `<span>${esc(k)} <b>${esc(v)}</b></span>`).join("");
 }
 function buildLegend() {
   const P = D.profiles[K];
@@ -301,23 +293,27 @@ function draw() {
   const sy = v => H - m.b - (v - y0) / (y1 - y0) * (H - m.t - m.b);
   let s = "";
   const xt = niceTicks(x0, x1, narrow ? 5 : 8), yt = niceTicks(y0, y1, 6);
-  const tf = (key, v) => key.startsWith("pc") ? String(+v.toFixed(2)) : (FL[key][1] === "sec" ? v.toFixed(2) : FL[key][1] === "pp" ? (v*100).toFixed(0) : (v*100).toFixed(0) + "%");
+  const tf = (key, v) => key.startsWith("th") ? String(+v.toFixed(2)) : (FL[key][1] === "sec" ? v.toFixed(2) : FL[key][1] === "pp" ? (v*100).toFixed(0) : (v*100).toFixed(0) + "%");
   xt.forEach(v => { s += `<line x1="${sx(v)}" x2="${sx(v)}" y1="${m.t}" y2="${H-m.b}" stroke="var(--grid)" stroke-width="1"/><text x="${sx(v)}" y="${H-m.b+16}" text-anchor="middle">${tf(xKey, v)}</text>`; });
   yt.forEach(v => { s += `<line x1="${m.l}" x2="${W-m.r}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--grid)" stroke-width="1"/><text x="${m.l-6}" y="${sy(v)+4}" text-anchor="end">${tf(yKey, v)}</text>`; });
-  if (xKey.startsWith("pc") && x0 < 0 && x1 > 0) s += `<line x1="${sx(0)}" x2="${sx(0)}" y1="${m.t}" y2="${H-m.b}" stroke="var(--axis)" stroke-width="1"/>`;
-  if (yKey.startsWith("pc") && y0 < 0 && y1 > 0) s += `<line x1="${m.l}" x2="${W-m.r}" y1="${sy(0)}" y2="${sy(0)}" stroke="var(--axis)" stroke-width="1"/>`;
+  if (xKey.startsWith("th") && x0 < 0 && x1 > 0) s += `<line x1="${sx(0)}" x2="${sx(0)}" y1="${m.t}" y2="${H-m.b}" stroke="var(--axis)" stroke-width="1"/>`;
+  if (yKey.startsWith("th") && y0 < 0 && y1 > 0) s += `<line x1="${m.l}" x2="${W-m.r}" y1="${sy(0)}" y2="${sy(0)}" stroke="var(--axis)" stroke-width="1"/>`;
 
   // axis titles / poles
-  if (xKey.startsWith("pc")) {
-    const i = +xKey.slice(2), [lo, hi] = PC_POLES[i];
-    s += `<text class="pole" x="${m.l}" y="${H-m.b+36}" text-anchor="start">← ${esc(lo)}</text>`;
-    s += `<text class="pole" x="${W-m.r}" y="${H-m.b+36}" text-anchor="end">${esc(hi)} →</text>`;
-    s += `<text class="axis-title" x="${(m.l+W-m.r)/2}" y="${H-6}" text-anchor="middle">PC${i+1} · ${(D.ev[i]*100).toFixed(1)}% of variance</text>`;
+  if (xKey.startsWith("th")) {
+    const th = TH[+xKey.slice(2)];
+    s += `<text class="pole" x="${m.l}" y="${H-m.b+36}" text-anchor="start">← ${esc(th.lo)}</text>`;
+    s += `<text class="pole" x="${W-m.r}" y="${H-m.b+36}" text-anchor="end">${esc(th.hi)} →</text>`;
+    s += `<text class="axis-title" x="${(m.l+W-m.r)/2}" y="${H-6}" text-anchor="middle">${esc(th.label)} · SD from season avg</text>`;
   } else {
     s += `<text class="axis-title" x="${(m.l+W-m.r)/2}" y="${H-m.b+42}" text-anchor="middle">${esc(FL[xKey][0])}</text>`;
   }
-  const ylab = yKey.startsWith("pc") ? `PC${+yKey.slice(2)+1} · ${(D.ev[+yKey.slice(2)]*100).toFixed(1)}%` : FL[yKey][0];
-  s += `<text class="axis-title" x="${m.l}" y="${m.t-10}" text-anchor="start">↑ ${esc(ylab)}${yKey.startsWith("pc") ? ` <tspan class="pole" dx="6">up: ${esc(PC_POLES[+yKey.slice(2)][1])} · down: ${esc(PC_POLES[+yKey.slice(2)][0])}</tspan>` : ""}</text>`;
+  if (yKey.startsWith("th")) {
+    const th = TH[+yKey.slice(2)];
+    s += `<text class="axis-title" x="${m.l}" y="${m.t-10}" text-anchor="start">↑ ${esc(th.label)} <tspan class="pole" dx="6">up: ${esc(th.hi)} · down: ${esc(th.lo)}</tspan></text>`;
+  } else {
+    s += `<text class="axis-title" x="${m.l}" y="${m.t-10}" text-anchor="start">↑ ${esc(FL[yKey][0])}</text>`;
+  }
 
   // points
   const r = narrow ? 5 : 6;
@@ -367,9 +363,9 @@ function draw() {
     });
   }
   chart.innerHTML = s;
-  note.textContent = (xKey.startsWith("pc") && yKey.startsWith("pc"))
-    ? `Clusters were fit in 5 principal-component dimensions, so points that overlap in this 2D view can still be apart on the PCs not shown. The + marks each cluster's mean position.`
-    : `Raw feature values. Each season is scored against its own league average before clustering, so clusters can overlap on any single raw feature.`;
+  note.textContent = (xKey.startsWith("th") || yKey.startsWith("th"))
+    ? `Theme scores are standard deviations from that season's league average. Clusters were fit on all ${TH.length} themes, so points that overlap here can still be apart on themes not shown. The + marks each cluster's mean position.`
+    : `Raw feature values. Clusters were fit on theme scores measured against each season's league average, so they can overlap on any single raw feature.`;
 }
 
 // ---------- hover / pin ----------
@@ -405,7 +401,7 @@ function showPanel(p) {
     const P = D.profiles[K];
     panel.innerHTML = `<div class="sub">How to read this</div><p class="hint">Hover a mark to see that team-season. Click to pin it. Use "Trace a team" to follow one offense and see what changed each season.</p>
     <div class="sub">Cluster tightness (mean silhouette)</div><div class="zlist" id="silList"></div>
-    <p class="hint">Silhouette runs from −1 to 1. The two small islands, QB-run/RPO and Shanahan wide-zone, are the most distinct. The big groups are broad regions of one continuum.</p>`;
+    <p class="hint">Silhouette runs from −1 to 1. The smaller groups (QB-run, wide-zone) are the most distinct. The two big groups are broad regions of one continuum.</p>`;
     const sl = panel.querySelector("#silList");
     P.labels.forEach((l, c) => {
       const row = document.createElement("div"); row.className = "zrow"; row.style.gridTemplateColumns = "1fr 70px 40px";
@@ -415,28 +411,34 @@ function showPanel(p) {
     });
     return;
   }
-  const c = cl(p), sil = K === 5 ? p.sil5 : p.sil7, mg = K === 5 ? p.m5 : p.m7, ru = K === 5 ? p.ru5 : p.ru7;
-  const top = F.map((f, i) => ({ f, i, z: p.z[i] })).sort((a, b) => Math.abs(b.z) - Math.abs(a.z)).slice(0, 7);
+  const c = cl(p), sil = p["sil" + K], mg = p["m" + K], ru = p["ru" + K];
+  const top = F.map((f, i) => ({ f, i, z: p.z[i] })).sort((a, b) => Math.abs(b.z) - Math.abs(a.z)).slice(0, 4);
   panel.innerHTML = `<div class="sub">${pinned === p ? (team ? `Pinned · click again to return to ${esc(team)}'s changes` : "Pinned · click again to release") : "Hovering"}</div>
     <h2></h2><div class="chipc">${swatch(c)}<span id="cl"></span></div>
     <dl class="kv"><dt>Silhouette</dt><dd>${sil.toFixed(3)}${sil < 0 ? " (closer to another cluster)" : ""}</dd>
     <dt>Next-closest</dt><dd id="ru" style="font-family:var(--body);font-size:13.5px"></dd>
     <dt title="1 minus distance to own centroid over distance to next-closest. Near 0 means on the boundary.">Margin</dt><dd>${mg.toFixed(2)}${mg < 0.1 ? " · borderline" : ""}</dd>
     <dt>Neutral plays</dt><dd>${p.n}</dd></dl>
-    <div class="sub">Most distinctive vs. that season's league</div><div class="zlist" id="zl"></div>`;
+    <div class="sub">Theme profile · SD from season average</div><div class="zlist" id="tl"></div>
+    <div class="sub">Most extreme features</div><div class="zlist" id="zl"></div>`;
   panel.querySelector("h2").textContent = `${p.t} ${p.s}`;
   panel.querySelector("#cl").textContent = labels()[c];
   panel.querySelector("#ru").textContent = ru;
+  const tl = panel.querySelector("#tl");
+  TH.forEach((th, i) => tl.appendChild(barRow(th.label, (p.th[i] >= 0 ? "+" : "") + p.th[i].toFixed(1), p.th[i], 3,
+    `${th.lo} ← → ${th.hi}. Features: ${th.features.map(f => FL[f][0]).join(", ")}`)));
   const zl = panel.querySelector("#zl");
-  top.forEach(t => {
-    const z = Math.max(-3, Math.min(3, t.z)), w = Math.abs(z) / 3 * 50;
-    const row = document.createElement("div"); row.className = "zrow";
-    row.innerHTML = `<span></span><div class="zbar"><i style="${z >= 0 ? `left:50%` : `left:${50 - w}%`};width:${w}%;background:${z >= 0 ? "var(--pos)" : "var(--neg)"}"></i></div><span class="v"></span>`;
-    row.children[0].textContent = FL[t.f][0];
-    row.children[2].textContent = fmt(t.f, p.f[t.i]);
-    row.title = `z = ${t.z.toFixed(2)}`;
-    zl.appendChild(row);
-  });
+  top.forEach(t => zl.appendChild(barRow(FL[t.f][0], fmt(t.f, p.f[t.i]), t.z, 3, `z = ${t.z.toFixed(2)}`)));
+}
+
+function barRow(name, valueText, z, scale, title) {
+  const c = Math.max(-scale, Math.min(scale, z)), w = Math.abs(c) / scale * 50;
+  const row = document.createElement("div"); row.className = "zrow";
+  row.innerHTML = `<span></span><div class="zbar"><i style="${c >= 0 ? "left:50%" : `left:${50 - w}%`};width:${w}%;background:${c >= 0 ? "var(--pos)" : "var(--neg)"}"></i></div><span class="v"></span>`;
+  row.children[0].textContent = name;
+  row.children[2].textContent = valueText;
+  if (title) row.title = title;
+  return row;
 }
 
 // ---------- team trajectory: what changed ----------
@@ -444,14 +446,14 @@ const zNorm = v => Math.sqrt(v.reduce((a, x) => a + x * x, 0));
 const LEAGUE_MOVE = (() => {
   const by = {}; D.points.forEach(p => (by[p.t] = by[p.t] || []).push(p));
   const mv = [];
-  Object.values(by).forEach(a => { a.sort((x, y) => x.s - y.s); for (let i = 1; i < a.length; i++) mv.push(zNorm(a[i].z.map((v, j) => v - a[i-1].z[j]))); });
+  Object.values(by).forEach(a => { a.sort((x, y) => x.s - y.s); for (let i = 1; i < a.length; i++) mv.push(zNorm(a[i].th.map((v, j) => v - a[i-1].th[j]))); });
   mv.sort((a, b) => a - b); return mv[Math.floor(mv.length / 2)];
 })();
 function showTeam() {
   const tp = D.points.filter(p => p.t === team).sort((a, b) => a.s - b.s);
   panel.innerHTML = `<div class="sub">Tracing · click a mark for season detail</div><h2></h2><div class="seasons"></div>
     <div class="sub">What changed, season to season</div>
-    <p class="hint">The five biggest shifts in each step, measured against that season's league average. Bars show the change in z-score; text shows the raw values.</p>`;
+    <p class="hint">For each step: the themes that moved most (in SD vs. that season's league), then the individual features behind the move, with raw values.</p>`;
   panel.querySelector("h2").textContent = team;
   const ss = panel.querySelector(".seasons");
   tp.forEach(p => {
@@ -460,27 +462,29 @@ function showTeam() {
     d.lastElementChild.textContent = labels()[cl(p)];
     ss.appendChild(d);
   });
-  const bothPC = xKey.startsWith("pc") && yKey.startsWith("pc");
   for (let i = 1; i < tp.length; i++) {
     const a = tp[i-1], b = tp[i];
+    const dth = b.th.map((v, j) => v - a.th[j]);
     const dz = b.z.map((v, j) => v - a.z[j]);
-    const tot = zNorm(dz);
-    const ca = labels()[cl(a)], cb = labels()[cl(b)];
-    let shown = "";
-    if (bothPC) {
-      const xi = +xKey.slice(2), yi = +yKey.slice(2);
-      const dx = b.pc[xi] - a.pc[xi], dy = xi === yi ? 0 : b.pc[yi] - a.pc[yi];
-      shown = ` · ${Math.round((dx * dx + dy * dy) / (tot * tot) * 100)}% of it visible on these axes`;
-    }
     const st = document.createElement("div"); st.className = "step";
-    st.innerHTML = `<h4></h4><div class="meta"></div>`;
+    st.innerHTML = `<h4></h4><div class="meta"></div><div class="sub">Themes</div>`;
     st.querySelector("h4").textContent = `${a.s} → ${b.s}: ` + (cl(a) === cl(b) ? `stayed ${SHORT[K][cl(a)]}` : `${SHORT[K][cl(a)]} → ${SHORT[K][cl(b)]}`);
-    st.querySelector(".meta").textContent = `Overall change ${tot.toFixed(1)} (league median ${LEAGUE_MOVE.toFixed(1)})${shown}`;
-    dz.map((d, j) => ({ d, j })).sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 5).forEach(({ d, j }) => {
-      const f = F[j], c = Math.max(-4, Math.min(4, d)), w = Math.abs(c) / 4 * 50;
+    st.querySelector(".meta").textContent = `Overall theme shift ${zNorm(dth).toFixed(1)} (league median ${LEAGUE_MOVE.toFixed(1)})`;
+    dth.map((d, j) => ({ d, j })).sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 3).forEach(({ d, j }) => {
+      const th = TH[j];
+      const row = document.createElement("div"); row.className = "crow";
+      row.title = `${a.th[j].toFixed(2)} → ${b.th[j].toFixed(2)} SD`;
+      row.innerHTML = `<div><div class="fn"></div><div class="fv"></div></div>` + barRow("", "", d, 3).children[1].outerHTML;
+      row.querySelector(".fn").textContent = th.label;
+      row.querySelector(".fv").textContent = `${d >= 0 ? "+" : "−"}${Math.abs(d).toFixed(1)} toward ${d >= 0 ? th.hi : th.lo}`;
+      st.appendChild(row);
+    });
+    const fs = document.createElement("div"); fs.className = "sub"; fs.textContent = "Features"; st.appendChild(fs);
+    dz.map((d, j) => ({ d, j })).sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 4).forEach(({ d, j }) => {
+      const f = F[j];
       const row = document.createElement("div"); row.className = "crow";
       row.title = `z ${a.z[j].toFixed(1)} → ${b.z[j].toFixed(1)} (change ${d >= 0 ? "+" : ""}${d.toFixed(1)})`;
-      row.innerHTML = `<div><div class="fn"></div><div class="fv"></div></div><div class="zbar"><i style="${c >= 0 ? "left:50%" : `left:${50 - w}%`};width:${w}%;background:${c >= 0 ? "var(--pos)" : "var(--neg)"}"></i></div>`;
+      row.innerHTML = `<div><div class="fn"></div><div class="fv"></div></div>` + barRow("", "", d, 4).children[1].outerHTML;
       row.querySelector(".fn").textContent = FL[f][0];
       row.querySelector(".fv").textContent = `${fmt(f, a.f[j])} → ${fmt(f, b.f[j])}`;
       st.appendChild(row);
@@ -497,22 +501,26 @@ function mix(a, b, t) {
 function buildHeat() {
   const P = D.profiles[K], cs = getComputedStyle(document.documentElement);
   const mid = cs.getPropertyValue("--mid").trim(), neg = cs.getPropertyValue("--neg").trim(), pos = cs.getPropertyValue("--pos").trim();
-  const dark = cs.getPropertyValue("color-scheme").includes("dark");
+  const cell = z => {
+    const t = Math.min(1, Math.abs(z) / 2), bg = mix(mid, z >= 0 ? pos : neg, t * 0.85);
+    return `<td style="background:${bg};color:${t > 0.55 ? "#fff" : "var(--ink)"}">${z >= 0 ? "+" : "−"}${Math.abs(z).toFixed(2)}</td>`;
+  };
+  const sec = label => `<tr><th colspan="${P.labels.length + 1}" style="padding-top:12px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">${label}</th></tr>`;
   let h = `<thead><tr><th></th>` + P.labels.map((l, c) => `<th>${swatch(c, 12)} ${esc(l)}<br><span class="m" style="font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:400">n=${P.n[c]}</span></th>`).join("") + `</tr></thead><tbody>`;
-  F.forEach((f, i) => {
-    h += `<tr><th>${esc(FL[f][0])}</th>` + P.z.map(zz => {
-      const z = zz[i], t = Math.min(1, Math.abs(z) / 2);
-      const bg = mix(mid, z >= 0 ? pos : neg, t * 0.85);
-      const light = t > 0.55;
-      return `<td style="background:${bg};color:${light ? "#fff" : "var(--ink)"}">${z >= 0 ? "+" : "−"}${Math.abs(z).toFixed(2)}</td>`;
-    }).join("") + `</tr>`;
-  });
+  h += sec("Themes (clustered on)");
+  TH.forEach((th, i) => { h += `<tr><th title="${esc(th.lo)} ← → ${esc(th.hi)}" style="color:var(--ink);font-weight:600">${esc(th.label)}</th>` + P.tz.map(zz => cell(zz[i])).join("") + `</tr>`; });
+  h += sec("Features");
+  F.forEach((f, i) => { h += `<tr><th>${esc(FL[f][0])}</th>` + P.z.map(zz => cell(zz[i])).join("") + `</tr>`; });
   heat.innerHTML = h + "</tbody>";
 }
 function buildRows() {
-  let h = `<thead><tr><th>Team</th><th>Season</th><th style="text-align:left">k=5 cluster</th><th style="text-align:left">k=7 cluster</th><th>Silhouette</th><th>Margin</th>` + F.map(f => `<th title="${esc(FL[f][0])}">${esc(f.replace(/_/g, " "))}</th>`).join("") + `</tr></thead><tbody>`;
+  let h = `<thead><tr><th>Team</th><th>Season</th><th style="text-align:left">k=${KP} cluster</th><th style="text-align:left">k=${KS} cluster</th><th>Silhouette</th><th>Margin</th>`
+    + TH.map(th => `<th title="${esc(th.lo)} ← → ${esc(th.hi)}">${esc(th.label)}</th>`).join("")
+    + F.map(f => `<th title="${esc(FL[f][0])}">${esc(f.replace(/_/g, " "))}</th>`).join("") + `</tr></thead><tbody>`;
   [...D.points].sort((a, b) => a.t.localeCompare(b.t) || a.s - b.s).forEach(p => {
-    h += `<tr><td>${esc(p.t)}</td><td>${p.s}</td><td style="text-align:left;font-family:var(--body)">${esc(D.profiles[5].labels[p.c5])}</td><td style="text-align:left;font-family:var(--body)">${esc(D.profiles[7].labels[p.c7])}</td><td>${p.sil5.toFixed(2)}</td><td>${p.m5.toFixed(2)}</td>` + F.map((f, i) => `<td>${fmt(f, p.f[i])}</td>`).join("") + `</tr>`;
+    h += `<tr><td>${esc(p.t)}</td><td>${p.s}</td><td style="text-align:left;font-family:var(--body)">${esc(D.profiles[KP].labels[p["c" + KP]])}</td><td style="text-align:left;font-family:var(--body)">${esc(D.profiles[KS].labels[p["c" + KS]])}</td><td>${p["sil" + KP].toFixed(2)}</td><td>${p["m" + KP].toFixed(2)}</td>`
+      + p.th.map(v => `<td>${v >= 0 ? "+" : ""}${v.toFixed(2)}</td>`).join("")
+      + F.map((f, i) => `<td>${fmt(f, p.f[i])}</td>`).join("") + `</tr>`;
   });
   rows.innerHTML = h + "</tbody>";
 }

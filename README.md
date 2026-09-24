@@ -46,8 +46,8 @@ python3 src/build_viz.py        # -> output/cluster_viz.html (interactive)
 
 ## Offensive identity model (`src/identity/`)
 
-Broader successor to the scheme clustering above. It uses 19 reliability-screened tendency features,
-z-scores them within season, keeps PCs by parallel analysis, and chooses k against a null-model silhouette.
+Broader successor to the scheme clustering above. It uses 19 reliability-screened tendency features, z-scores them within season,
+and collapses them into 7 named themes (`src/identity/themes.py`). It clusters on the themes with k-means and chooses k against a null-model silhouette.
 Results and all stats: `output/identity/FINDINGS.md`.
 
 ```
@@ -57,4 +57,5 @@ python3 src/identity/build_identity_features.py   # -> data/identity_features.cs
 python3 src/identity/reliability.py               # -> output/identity/feature_reliability.csv
 python3 src/identity/cluster_identity.py          # -> output/identity/*.csv
 python3 src/identity/build_scatter.py             # -> output/identity/identity_scatter.html
+python3 src/identity/compare_variants.py          # optional: PCA / skew-fix / themes / binning comparison
 ```
